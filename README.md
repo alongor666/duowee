@@ -1,291 +1,205 @@
-# 车险变动成本明细分析系统
+# 车险多维分析系统
 
-一个基于 Next.js 的智能化车险变动成本分析平台，通过AI驱动的数据洞察，帮助保险公司实现精准的成本控制和业务优化。采用前后端分离架构和轻量化设计理念，无数据库依赖，直接处理CSV文件。
+车险变动成本明细分析多维数据分析平台，提供车险业务核心指标的4×4 KPI看板展示和多维度分析功能。
 
-**项目愿景**: 构建一个智能化的车险变动成本分析平台，通过AI驱动的数据洞察，帮助保险公司实现精准的成本控制和业务优化。
+## 功能特性
 
-**北极星指标**: 提升保险公司变动成本分析效率300%，降低人工分析成本80%。
+- **4×4 KPI看板矩阵**：展示16个核心车险业务指标
+- **智能数据导入**：支持CSV文件拖拽上传，自动验证数据格式
+- **多维度筛选**：支持17个维度字段的灵活筛选
+- **对比分析**：同比、环比及自定义时间段对比
+- **响应式设计**：适配桌面、平板和移动设备
+- **实时计算**：基于标准公式的动态指标计算
+- **数据导出**：支持CSV格式数据导出
 
-## 🎯 项目特色
+## 技术架构
 
-### 正确的计算逻辑
-- **比率重新计算**: 所有比率基于聚合后的绝对值重新计算，确保准确性
-- **变动成本率**: (费用金额 ÷ 跟单保费) + (总赔款 ÷ 满期净保费)
-- **满期赔付率**: 总赔款求和 ÷ 满期保费求和
-- **满期率**: 满期保费求和 ÷ 跟单保费求和
-
-### 多维度筛选系统
-- **16个筛选维度**: 保单年度、数据周期、业务类型、三级机构、客户类别、车险种类、能源类型、险别组合、续保状态、地区、渠道、产品、客户类型、风险等级、保单状态、理赔状态
-- **三大选择器**: 维度选择器、指标选择器、图表类型选择器
-- **智能筛选**: 支持搜索和批量选择
-- **预设模板**: 快速筛选预设（新能源车、商业险重点等）
-- **自定义保存**: 保存个人筛选偏好
-
-### 功能架构
-#### 四层架构设计：
-- **数据层**: CSV文件处理、数据验证、类型转换
-- **业务逻辑层**: 指标计算引擎、数据聚合、筛选逻辑
-- **交互层**: 三大选择器系统、图表画布、联动刷选
-- **智能服务层**: AI分析引擎、智能洞察、预警系统
-
-#### 核心功能模块：
-- **核心指标看板**: 4x4网格布局展示16个核心指标
-- **图表画布与交互**: 字段映射、联动刷选、智能标注、导出功能
-- **AI智能洞察**: 数据变化分析、趋势预测、异常检测
-- **数据导入与集成**: CSV文件上传、数据验证、错误处理
-
-## 📊 核心功能
-
-### 🤖 AI智能洞察功能
-- **数据变化分析**: 自动识别关键指标的异常变化
-- **趋势预测**: 基于历史数据预测未来趋势
-- **异常检测**: 智能识别数据异常和风险点
-- **成本分析洞察**: 深度分析成本结构和优化建议
-- **业绩对比**: 多维度业绩对比和排名分析
-- **风险预警**: 实时监控风险指标并提供预警
-
-### 16个核心指标体系
-#### 保费类指标 (4个)
-- **跟单保费**: 保险公司承保的保费总额
-- **满期净保费**: 实际到期的净保费收入
-- **单均保费**: 平均每张保单的保费金额
-- **商业险折前保费**: 商业险优惠前的保费金额
-
-#### 赔款类指标 (4个)
-- **总赔款**: 保险公司支付的赔款总额
-- **案均赔款**: 平均每个理赔案件的赔款金额
-- **赔案件数**: 发生理赔的案件总数
-- **已决赔款**: 已经结案的赔款金额
-
-#### 成本类指标 (4个)
-- **费用金额**: 运营和管理费用总额
-- **边际贡献额**: 保费收入减去变动成本的金额
-- **保费计划**: 预设的保费收入目标
-- **最终保费**: 经过调整后的最终保费金额
-
-#### 效率类指标 (4个)
-- **满期赔付率**: 赔款与保费的比率
-- **变动成本率**: 变动成本占保费的比率
-- **边际贡献率**: 边际贡献占保费的比率
-- **保费计划达成率**: 实际保费与计划保费的比率
-
-### 📈 图表组件库
-- **趋势图**: 时间序列数据趋势展示，支持多指标对比
-- **贡献图**: 各维度贡献比例分析，饼图+环形图
-- **排名图**: 水平/垂直条形图，支持排序切换
-- **帕累托图**: 80/20原则分析，组合图表展示
-- **比例图**: 堆积条形图/面积图，构成比例分析
-- **气泡图**: 多维散点图，支持象限分析
-
-### 🎯 AI智能洞察功能
-- **数据变化分析**: 自动识别关键指标的异常变化
-- **趋势预测**: 基于历史数据预测未来趋势
-- **异常检测**: 智能识别数据异常和风险点
-- **成本分析洞察**: 深度分析成本结构和优化建议
-- **业绩对比**: 多维度业绩对比和排名分析
-- **风险预警**: 实时监控风险指标并提供预警
-
-## 🛠 技术栈
-
-- **前端框架**: Next.js 14 (App Router)
-- **开发语言**: TypeScript
-- **样式方案**: Tailwind CSS  
-- **图表库**: Recharts
-- **状态管理**: React Context API + useReducer
-- **数据处理**: 自研DataProcessor + DataMapper
-- **API层**: 统一dataService服务层
-- **构建工具**: Next.js 内置工具链
-
-## 项目结构
-
-```
-src/
-├── app/                      # Next.js App Router
-│   ├── dashboard/           # 仪表板页面
-│   ├── api/data/           # 数据API路由
-│   ├── layout.tsx          # 根布局
-│   └── page.tsx            # 首页
-├── components/              # React组件库
-│   ├── dashboard/          # 仪表板组件
-│   │   └── views/         # 5个分析视图
-│   ├── charts/            # 6种图表组件
-│   ├── filters/           # 筛选器组件
-│   ├── kpi/              # KPI指标组件
-│   ├── layout/           # 布局组件
-│   └── ui/               # 基础UI组件
-├── contexts/              # React Context
-│   └── DashboardContext.tsx
-├── services/              # 服务层
-│   └── dataService.ts    # API服务
-├── types/                # TypeScript类型
-│   └── index.ts          # 完整类型定义
-├── utils/                # 数据处理层
-│   ├── dataProcessor.ts  # 核心计算逻辑
-│   ├── dataMapper.ts     # 数据映射
-│   ├── csvImporter.ts    # CSV导入
-│   └── apiClient.ts      # API客户端
-└── 数据字典.json           # 数据字段定义
-```
+- **前端框架**：Next.js 14 + TypeScript
+- **样式系统**：Tailwind CSS + shadcn/ui
+- **状态管理**：React Context
+- **图表库**：Recharts
+- **图标库**：Lucide React
 
 ## 快速开始
 
 ### 环境要求
+
 - Node.js 18.17 或更高版本
-- npm 或 yarn 包管理器
+- npm 9.0 或更高版本
 
-### 安装步骤
+### 安装依赖
 
-1. **克隆项目**
 ```bash
-git clone <repository-url>
 cd car-insurance-dashboard
-```
-
-2. **安装依赖**
-```bash
 npm install
-# 或
-yarn install
 ```
 
-3. **启动开发服务器**
+### 开发运行
+
 ```bash
 npm run dev
-# 或
-yarn dev
 ```
 
-4. **访问应用**
-打开浏览器访问 [http://localhost:3000](http://localhost:3000)
+访问 [http://localhost:3000](http://localhost:3000) 查看应用。
 
-### 构建和部署
+### 构建生产版本
 
 ```bash
-# 构建生产版本
 npm run build
-
-# 启动生产服务器
-npm run start
-
-# 代码检查
-npm run lint
+npm start
 ```
 
-## 配置说明
+## 数据配置
 
-### 环境变量
-创建 `.env.local` 文件配置环境变量：
+### 数据文件结构
 
-```env
-# API 配置
-NEXT_PUBLIC_API_URL=https://api.example.com
-NEXT_PUBLIC_API_KEY=your_api_key
-
-# AI 服务配置
-NEXT_PUBLIC_AI_ENDPOINT=https://ai-service.example.com
+```
+public/data/
+├── metadata/
+│   ├── available_years.json    # 可用年度配置
+│   ├── available_weeks.json    # 可用周次配置
+│   ├── data_catalog.json       # 数据文件目录
+│   └── field_dictionary.json   # 字段定义字典
+└── *.csv                       # 周度数据文件
 ```
 
-### 数据源配置
-数据源配置位于 `src/data/` 目录：
-- `context2AI.json`: AI 助手上下文配置
-- 其他配置文件可根据需要添加
+### CSV文件格式
+
+数据文件命名格式：`YYYY保单第WW周变动成本明细表.csv`
+
+必须包含以下字段：
+- 维度字段（17个）：时间、机构、业务、客户、风险等维度
+- 度量字段（9个）：保费、赔款、费用等金额和数量指标
+
+详细字段定义请参考 `public/data/metadata/field_dictionary.json`。
+
+## KPI指标说明
+
+### 第一行：绝对值指标
+1. **签单保费**（万元）：SUM(signed_premium_yuan)
+2. **满期保费**（万元）：SUM(matured_premium_yuan)
+3. **保单件数**（件）：SUM(policy_count)
+4. **赔案件数**（件）：SUM(claim_case_count)
+
+### 第二行：核心率值指标
+5. **满期赔付率**（%）：SUM(reported_claim_payment_yuan) / SUM(matured_premium_yuan) × 100
+6. **费用率**（%）：SUM(expense_amount_yuan) / SUM(signed_premium_yuan) × 100
+7. **变动成本率**（%）：SUM(expense_amount_yuan + reported_claim_payment_yuan) / SUM(signed_premium_yuan) × 100
+8. **满期边际贡献率**（%）：SUM(marginal_contribution_amount_yuan) / SUM(matured_premium_yuan) × 100
+
+### 第三行：运营指标
+9. **满期出险率**（%）：SUM(claim_case_count) / SUM(policy_count) × 满期率 × 100
+10. **单均保费**（元）：SUM(signed_premium_yuan) / SUM(policy_count)
+11. **案均赔款**（元）：SUM(reported_claim_payment_yuan) / SUM(claim_case_count)
+12. **满期边际贡献额**（万元）：SUM(marginal_contribution_amount_yuan)
+
+### 第四行：商业险专项指标
+13. **商业险折前保费**（万元）：SUM(commercial_premium_before_discount_yuan)
+14. **商业险自主系数**：SUM(signed_premium_yuan) / SUM(commercial_premium_before_discount_yuan)
+15. **已报告赔款**（万元）：SUM(reported_claim_payment_yuan)
+16. **费用金额**（万元）：SUM(expense_amount_yuan)
+
+## 使用说明
+
+### 导入数据
+1. 点击页面右上角的"导入数据"按钮
+2. 在弹出的导入界面中，可以：
+   - 点击"下载模板"获取标准CSV格式模板
+   - 拖拽CSV文件到上传区域，或点击选择文件
+   - 系统自动验证数据格式和质量
+   - 查看验证结果，修复任何错误
+   - 点击"导入数据"完成导入
+3. 支持多文件同时上传和批量处理
+
+### 筛选数据
+1. 在左侧筛选面板选择所需的维度条件
+2. 支持多选和单选模式
+3. 使用搜索框快速定位筛选项
+4. 点击"重置"清除所有筛选条件
+
+### 对比分析
+1. 在右侧对比控制面板启用对比分析
+2. 选择对比类型：同比、环比或自定义
+3. 系统自动计算变化值和变化率
+4. 变化性质通过颜色和图标直观展示
+
+### 导出数据
+1. 在筛选面板或KPI卡片中选择导出功能
+2. 支持导出当前筛选结果的CSV文件
+3. 包含KPI指标汇总和明细数据
 
 ## 开发指南
 
-### 组件开发
-- 使用 TypeScript 进行类型安全开发
-- 遵循 React Hooks 最佳实践
-- 组件应当是纯函数组件
-- 使用 Tailwind CSS 进行样式开发
+### 项目结构
 
-### 状态管理
-使用 React Context API 进行全局状态管理：
-```typescript
-import { useDashboard } from '@/contexts/DashboardContext';
-
-function MyComponent() {
-  const { state, updateFilters } = useDashboard();
-  // 组件逻辑
-}
+```
+src/
+├── components/
+│   ├── dashboard/     # 仪表板组件
+│   ├── kpi/          # KPI指标组件
+│   ├── filters/      # 筛选器组件
+│   └── ui/           # 基础UI组件
+├── contexts/         # 全局状态管理
+├── types/           # TypeScript类型定义
+├── utils/           # 工具函数
+└── app/             # Next.js应用目录
 ```
 
-### 图表开发
-基于 Recharts 库开发图表组件：
-- 所有图表组件放在 `src/components/charts/` 目录
-- 支持响应式设计
-- 提供交互功能（悬停、点击、缩放等）
+### 添加新指标
 
-### AI 助手集成
-AI 助手通过 `context2AI.json` 配置文件定义上下文捕获规则：
-- 定义触发条件
-- 配置数据捕获规则
-- 设置 AI 提示模板
+1. 在 `src/types/index.ts` 中定义指标类型
+2. 在 `src/utils/calculations.ts` 中添加计算逻辑
+3. 在 `components/dashboard/DashboardGrid.tsx` 中配置显示顺序
+4. 更新字段字典文件
 
-## API 接口
+### 自定义样式
 
-### 数据接口规范
-```typescript
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-  timestamp: string;
-}
+项目使用 Tailwind CSS，主要样式配置在：
+- `tailwind.config.js`：主题配置
+- `src/app/globals.css`：全局样式和自定义CSS
 
-interface InsuranceDataRequest {
-  filters: FilterOptions;
-  pagination?: {
-    page: number;
-    limit: number;
-  };
-}
-```
+## 故障排除
 
-### 主要接口
-- `GET /api/dashboard/kpi` - 获取 KPI 数据
-- `GET /api/dashboard/trends` - 获取趋势数据
-- `GET /api/dashboard/analytics` - 获取分析数据
-- `POST /api/ai/insights` - AI 洞察分析
+### 常见问题
 
-## 性能优化
+1. **数据导入失败**
+   - 检查 CSV 文件格式是否符合模板要求
+   - 确认必需字段是否完整
+   - 查看数据验证错误信息并修复
+   - 检查数值字段是否包含非法字符
 
-### 已实施的优化
-- Next.js 自动代码分割
-- 图片优化和懒加载
-- CSS 优化和压缩
-- 组件懒加载
+2. **KPI计算异常**
+   - 验证数据中是否包含必需字段
+   - 检查数值字段是否为有效数字
+   - 确认分母不为零的情况处理
 
-### 建议的优化
-- 使用 React.memo 优化组件重渲染
-- 实现虚拟滚动处理大数据集
-- 添加服务端缓存
-- 使用 CDN 加速静态资源
+3. **筛选器无响应**
+   - 确认数据已正确导入
+   - 检查筛选选项是否从数据中正确提取
+   - 验证筛选逻辑是否正确应用
 
-## 浏览器支持
+4. **文件上传问题**
+   - 确保文件格式为CSV（.csv）
+   - 检查文件大小是否过大（建议<10MB）
+   - 确认文件编码为UTF-8
 
-- Chrome (推荐)
-- Firefox
-- Safari
-- Edge
+### 日志调试
 
-## 贡献指南
+开发模式下，相关日志会输出到浏览器控制台：
+- 数据加载过程
+- 计算错误信息
+- 筛选应用状态
 
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add some amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建 Pull Request
+## 版本信息
+
+- 当前版本：v1.0.0
+- 更新日期：2024-09-21
+- 兼容数据版本：1.0.0
 
 ## 许可证
 
-此项目使用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+本项目仅供内部使用，版权所有。
 
 ## 支持
 
-如遇到问题或需要帮助，请通过以下方式联系：
-- 创建 GitHub Issue
-- 发送邮件至：support@example.com
-
-## 更新日志
-
-查看 [CHANGELOG.md](CHANGELOG.md) 了解版本更新详情。
+如有问题或建议，请联系开发团队。
