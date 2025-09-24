@@ -12,6 +12,8 @@
 - **实时计算**：基于标准公式的动态指标计算
 - **数据导出**：支持CSV格式数据导出
 
+> 详细 PRD 请见：`PRD.md`
+
 ## 技术架构
 
 - **前端框架**：Next.js 14 + TypeScript
@@ -73,6 +75,37 @@ public/data/
 
 详细字段定义请参考 `public/data/metadata/field_dictionary.json`。
 
+实际模板字段（与系统解析器、测试数据.csv 完全一致，按列顺序）：
+
+```
+snapshot_date,
+policy_start_year,
+business_type_category,
+chengdu_branch,
+third_level_organization,
+customer_category_3,
+insurance_type,
+is_new_energy_vehicle,
+coverage_type,
+is_transferred_vehicle,
+renewal_status,
+vehicle_insurance_grade,
+highway_risk_grade,
+large_truck_score,
+small_truck_score,
+terminal_source,
+signed_premium_yuan,
+matured_premium_yuan,
+policy_count,
+claim_case_count,
+reported_claim_payment_yuan,
+expense_amount_yuan,
+commercial_premium_before_discount_yuan,
+premium_plan_yuan,
+marginal_contribution_amount_yuan,
+week_number
+```
+
 ## KPI指标说明
 
 ### 第一行：绝对值指标
@@ -88,7 +121,7 @@ public/data/
 8. **满期边际贡献率**（%）：SUM(marginal_contribution_amount_yuan) / SUM(matured_premium_yuan) × 100
 
 ### 第三行：运营指标
-9. **满期出险率**（%）：SUM(claim_case_count) / SUM(policy_count) × 满期率 × 100
+9. **满期出险率**（%）：(SUM(claim_case_count) / SUM(policy_count)) × (SUM(matured_premium_yuan) / SUM(signed_premium_yuan)) × 100
 10. **单均保费**（元）：SUM(signed_premium_yuan) / SUM(policy_count)
 11. **案均赔款**（元）：SUM(reported_claim_payment_yuan) / SUM(claim_case_count)
 12. **满期边际贡献额**（万元）：SUM(marginal_contribution_amount_yuan)
@@ -104,12 +137,12 @@ public/data/
 ### 导入数据
 1. 点击页面右上角的"导入数据"按钮
 2. 在弹出的导入界面中，可以：
-   - 点击"下载模板"获取标准CSV格式模板
-   - 拖拽CSV文件到上传区域，或点击选择文件
-   - 系统自动验证数据格式和质量
-   - 查看验证结果，修复任何错误
-   - 点击"导入数据"完成导入
-3. 支持多文件同时上传和批量处理
+   - 点击"下载模板"获取标准CSV模板（包含示例行）
+   - 拖拽CSV文件到上传区域，或点击选择文件（可直接选择仓库根目录中的“测试数据.csv”）
+   - 系统自动进行解析与数据质量校验（错误需修复，警告可继续导入）
+   - 支持一键复制错误报告，或下载验证报告（含逐行问题明细：行号/字段/级别/说明）
+   - 点击"导入数据"将记录注入内存并刷新KPI
+3. 当前版本支持单文件上传；大型数据建议分周导入
 
 ### 筛选数据
 1. 在左侧筛选面板选择所需的维度条件
@@ -138,6 +171,7 @@ src/
 │   ├── dashboard/     # 仪表板组件
 │   ├── kpi/          # KPI指标组件
 │   ├── filters/      # 筛选器组件
+│   ├── data/         # 数据导入组件（CSV 上传/校验/导入）
 │   └── ui/           # 基础UI组件
 ├── contexts/         # 全局状态管理
 ├── types/           # TypeScript类型定义
@@ -167,6 +201,20 @@ src/
    - 确认必需字段是否完整
    - 查看数据验证错误信息并修复
    - 检查数值字段是否包含非法字符
+   - 说明：
+     - 逐行解析失败不会中断导入，跳过该行并记录到“问题明细”与报告
+     - `已报告赔款`/`费用金额`允许负值（冲销），作为“警告”提示，不阻止导入
+     - “赔案件数>保单件数”在部分场景属正常，不再提示为问题
+
+### 筛选器使用优化
+- 核心筛选（年度/周次/机构/保险类型/险种）默认展开
+- 多选支持：全选/清空/反选；周次支持“范围选择”“最近4周”快捷操作
+- 草稿-应用模式：变更先在草稿中累积，点击“应用筛选”后生效（并写入URL），便于分享与复现
+- 应用后筛选器自动收起，显示简洁摘要条与“调整筛选/清空”按钮，聚焦数据展示
+
+### 视觉风格
+- 整体偏向苹果发布会风格：留白、渐变背景、玻璃态卡片、细腻动效
+- KPI 卡片采用玻璃态（backdrop-blur）与柔和阴影，标题使用渐变字色
 
 2. **KPI计算异常**
    - 验证数据中是否包含必需字段

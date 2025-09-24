@@ -1,17 +1,24 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, Filter, X, RotateCcw } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useDashboard } from '@/contexts/DashboardContext';
-import { getFilterOptions, createDefaultFilters } from '@/utils/dataLoader';
+import { getFilterOptions, createDefaultFilters, filterData } from '@/utils/dataLoader';
 import type { FilterState } from '@/types';
+import { encodeFiltersToQuery, decodeFiltersFromQuery, FILTERS_QUERY_KEY } from '@/utils/filterSerialization';
 
 export default function FilterPanel() {
-  const { state, updateFilters, resetFilters } = useDashboard();
+  const { state, updateFilters } = useDashboard();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedFilters, setExpandedFilters] = useState<string[]>(['policy_start_year', 'week_number']);
+  const [expandedFilters, setExpandedFilters] = useState<string[]>(['policy_start_year', 'week_number', 'third_level_organization', 'insurance_type', 'coverage_type']);
   const [filterOptions, setFilterOptions] = useState<any>({});
+  const [draftFilters, setDraftFilters] = useState<FilterState>(state.filters);
+  const [applyErrors, setApplyErrors] = useState<string[]>([]);
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
 
   // 当数据加载完成后，计算可用的筛选选项
   useEffect(() => {
@@ -20,6 +27,33 @@ export default function FilterPanel() {
       setFilterOptions(options);
     }
   }, [state.data]);
+
+  // 同步全局筛选到草稿（例如导入数据后）
+  useEffect(() => {
+    setDraftFilters(state.filters);
+  }, [state.filters]);
+
+  // 从URL或本地存储恢复筛选
+  useEffect(() => {
+    const urlFilters = decodeFiltersFromQuery(searchParams.toString());
+    if (urlFilters) {
+      setDraftFilters(urlFilters);
+      // 延后应用以确保数据已加载
+      setTimeout(() => updateFilters(urlFilters), 0);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem('filters:last');
+      if (raw) {
+        const saved = JSON.parse(raw) as FilterState;
+        setDraftFilters(saved);
+        setTimeout(() => updateFilters(saved), 0);
+      }
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 筛选器配置
   const filterConfigs = [
@@ -111,20 +145,46 @@ export default function FilterPanel() {
   };
 
   const handleFilterChange = (filterId: string, value: any) => {
-    const newFilters = {
-      ...state.filters,
+    setDraftFilters(prev => ({
+      ...prev,
       [filterId]: value
-    };
-    updateFilters(newFilters);
+    }));
   };
 
   const handleMultiSelectChange = (filterId: string, option: any) => {
-    const currentValues = state.filters[filterId as keyof FilterState] as any[];
+    const currentValues = draftFilters[filterId as keyof FilterState] as any[];
     const newValues = currentValues.includes(option)
       ? currentValues.filter(v => v !== option)
       : [...currentValues, option];
 
     handleFilterChange(filterId, newValues);
+  };
+
+  // 多选批量操作
+  const selectAll = (filterId: string, options: any[]) => {
+    handleFilterChange(filterId, [...options]);
+  };
+
+  const clearAll = (filterId: string) => {
+    handleFilterChange(filterId, []);
+  };
+
+  const invertSelect = (filterId: string, options: any[]) => {
+    const currentValues = draftFilters[filterId as keyof FilterState] as any[];
+    const set = new Set(currentValues);
+    const inverted = options.filter(o => !set.has(o));
+    handleFilterChange(filterId, inverted);
+  };
+
+  // 周次范围快速选择
+  const [weekStartInput, setWeekStartInput] = useState<number | ''>('');
+  const [weekEndInput, setWeekEndInput] = useState<number | ''>('');
+  const applyWeekRange = (opts: number[]) => {
+    if (weekStartInput === '' || weekEndInput === '') return;
+    const start = Math.min(Number(weekStartInput), Number(weekEndInput));
+    const end = Math.max(Number(weekStartInput), Number(weekEndInput));
+    const inRange = opts.filter((w) => w >= start && w <= end);
+    handleFilterChange('week_number', inRange);
   };
 
   const getFilteredOptions = (options: any[], searchTerm: string) => {
@@ -134,16 +194,149 @@ export default function FilterPanel() {
     );
   };
 
-  const getActiveFilterCount = () => {
+  const getActiveFilterCount = (filters: FilterState) => {
     let count = 0;
-    Object.entries(state.filters).forEach(([key, value]) => {
+    Object.entries(filters).forEach(([key, value]) => {
       if (Array.isArray(value) && value.length > 0) count++;
       if (value !== null && !Array.isArray(value) && value !== '') count++;
     });
     return count;
   };
 
-  const hasActiveFilters = getActiveFilterCount() > 0;
+  const hasActiveFilters = getActiveFilterCount(draftFilters) > 0;
+
+  const hasUnsavedChanges = useMemo(() => {
+    return JSON.stringify(draftFilters) !== JSON.stringify(state.filters);
+  }, [draftFilters, state.filters]);
+
+  const previewCount = useMemo(() => {
+    if (state.data.length === 0) return 0;
+    return filterData(state.data, draftFilters).length;
+  }, [draftFilters, state.data]);
+
+  const validateRequired = (filters: FilterState) => {
+    const errors: string[] = [];
+    if (!filters.policy_start_year || filters.policy_start_year.length === 0) {
+      errors.push('请选择保单起期年度');
+    }
+    if (!filters.week_number || filters.week_number.length === 0) {
+      errors.push('请选择周次');
+    }
+    return errors;
+  };
+
+  const isDraftValid = useMemo(() => validateRequired(draftFilters).length === 0, [draftFilters]);
+
+  const applyDraft = () => {
+    const errs = validateRequired(draftFilters);
+    setApplyErrors(errs);
+    if (errs.length > 0) return;
+    updateFilters(draftFilters);
+    // 持久化最近一次筛选
+    try {
+      localStorage.setItem('filters:last', JSON.stringify(draftFilters));
+    } catch {}
+    // 写入URL
+    const query = encodeFiltersToQuery(draftFilters);
+    const url = `${window.location.pathname}?${query}`;
+    router.replace(url);
+    // 应用后自动收起
+    setPanelCollapsed(true);
+  };
+
+  const cancelDraft = () => {
+    setDraftFilters(state.filters);
+    setApplyErrors([]);
+  };
+
+  const resetDraft = () => {
+    setDraftFilters(createDefaultFilters());
+    setApplyErrors([]);
+  };
+
+  // 方案保存/加载
+  const [presetName, setPresetName] = useState('');
+  const [presets, setPresets] = useState<Array<{ name: string; filters: FilterState; createdAt: string }>>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('filters:presets');
+      if (raw) setPresets(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  const savePresets = (next: typeof presets) => {
+    setPresets(next);
+    try { localStorage.setItem('filters:presets', JSON.stringify(next)); } catch {}
+  };
+
+  const addPreset = () => {
+    if (!presetName.trim()) return;
+    const exists = presets.some(p => p.name === presetName.trim());
+    const next = exists
+      ? presets.map(p => p.name === presetName.trim() ? ({ ...p, filters: draftFilters, createdAt: new Date().toISOString() }) : p)
+      : [...presets, { name: presetName.trim(), filters: draftFilters, createdAt: new Date().toISOString() }];
+    savePresets(next);
+    setPresetName('');
+  };
+
+  const applyPreset = (name: string) => {
+    const p = presets.find(p => p.name === name);
+    if (!p) return;
+    setDraftFilters(p.filters);
+  };
+
+  const deletePreset = (name: string) => {
+    const next = presets.filter(p => p.name !== name);
+    savePresets(next);
+  };
+
+  const copyShareLink = async () => {
+    const query = encodeFiltersToQuery(draftFilters);
+    const link = `${window.location.origin}${window.location.pathname}?${query}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      // no-op toast here; could integrate notification system if present
+    } catch {}
+  };
+
+  // 收起态摘要
+  const summaryChips = useMemo(() => {
+    const chips: Array<{ label: string; values: string[] }> = [];
+    const showKeys = ['policy_start_year', 'week_number', 'third_level_organization', 'insurance_type', 'coverage_type'] as const;
+    showKeys.forEach((key) => {
+      const cfg = filterConfigs.find(c => c.id === key);
+      const v = draftFilters[key as keyof FilterState] as any;
+      if (!cfg) return;
+      if (Array.isArray(v) && v.length > 0) chips.push({ label: cfg.name, values: v.slice(0, 3).map(String) });
+    });
+    return chips;
+  }, [draftFilters]);
+
+  if (panelCollapsed) {
+    const total = state.data.length > 0 ? filterData(state.data, draftFilters).length : 0;
+    return (
+      <div className="glass rounded-lg border p-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-primary" />
+          <div className="text-sm">
+            已应用 {getActiveFilterCount(draftFilters)} 项筛选（{total.toLocaleString('zh-CN')} 条记录）
+          </div>
+          <div className="hidden md:flex items-center gap-2">
+            {summaryChips.map((c) => (
+              <span key={c.label} className="text-xs px-2 py-1 rounded bg-primary/10 text-primary">
+                {c.label}: {c.values.join('、')}{c.values.length === 3 ? '…' : ''}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setPanelCollapsed(false)} className="px-3 py-1.5 text-sm rounded-md border">调整筛选</button>
+          <button onClick={resetDraft} className="px-3 py-1.5 text-sm rounded-md border">清空</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -154,20 +347,28 @@ export default function FilterPanel() {
           <h3 className="text-lg font-semibold">数据筛选</h3>
           {hasActiveFilters && (
             <span className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded-full">
-              {getActiveFilterCount()}
+              {getActiveFilterCount(draftFilters)}
             </span>
           )}
         </div>
-
-        {hasActiveFilters && (
+        <div className="flex items-center gap-2">
+          {hasUnsavedChanges && (
+            <span className="text-xs text-warning">有未应用的更改</span>
+          )}
           <button
-            onClick={resetFilters}
+            onClick={() => setPanelCollapsed(true)}
+            className="flex items-center space-x-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <span>收起</span>
+          </button>
+          <button
+            onClick={resetDraft}
             className="flex items-center space-x-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <RotateCcw className="h-4 w-4" />
-            <span>重置</span>
+            <span>清空</span>
           </button>
-        )}
+        </div>
       </div>
 
       {/* 搜索框 */}
@@ -194,13 +395,14 @@ export default function FilterPanel() {
       <div className="space-y-2">
         {filterConfigs.map((config) => {
           const isExpanded = expandedFilters.includes(config.id);
-          const currentValue = state.filters[config.id as keyof FilterState];
+          const currentValue = draftFilters[config.id as keyof FilterState];
           const hasValue = Array.isArray(currentValue) ? currentValue.length > 0 : currentValue !== null;
           const options = filterOptions[config.id] || config.options || [];
           const filteredOptions = getFilteredOptions(options, searchTerm);
+          const showRequiredError = config.required && !hasValue;
 
           return (
-            <div key={config.id} className="border border-border rounded-lg">
+            <div key={config.id} className={cn("border rounded-lg", showRequiredError ? 'border-destructive' : 'border-border')}>
               {/* 筛选器标题 */}
               <button
                 onClick={() => toggleFilter(config.id)}
@@ -233,6 +435,9 @@ export default function FilterPanel() {
               {/* 筛选器选项 */}
               {isExpanded && (
                 <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
+                  {showRequiredError && (
+                    <div className="text-xs text-destructive">此为必选项</div>
+                  )}
                   {config.type === 'select' ? (
                     <div className="space-y-1">
                       {(config.options || []).map((option: any) => (
@@ -249,7 +454,45 @@ export default function FilterPanel() {
                       ))}
                     </div>
                   ) : (
-                    <div className="space-y-1">
+                    <div className="space-y-2">
+                      {/* 多选工具条 */}
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <button className="px-2 py-1 rounded border" onClick={() => selectAll(config.id, filteredOptions)}>全选</button>
+                        <button className="px-2 py-1 rounded border" onClick={() => clearAll(config.id)}>清空</button>
+                        <button className="px-2 py-1 rounded border" onClick={() => invertSelect(config.id, filteredOptions)}>反选</button>
+                        {config.id === 'week_number' && (
+                          <div className="flex items-center gap-1">
+                            <span>范围</span>
+                            <input
+                              type="number"
+                              className="w-16 px-1 py-0.5 border rounded"
+                              value={weekStartInput === '' ? (Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.min(...filterOptions.week_number) : '') : weekStartInput}
+                              onChange={(e) => setWeekStartInput(e.target.value === '' ? '' : Number(e.target.value))}
+                              min={Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.min(...filterOptions.week_number) : 1}
+                              max={Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.max(...filterOptions.week_number) : 53}
+                            />
+                            <span>-</span>
+                            <input
+                              type="number"
+                              className="w-16 px-1 py-0.5 border rounded"
+                              value={weekEndInput === '' ? (Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.max(...filterOptions.week_number) : '') : weekEndInput}
+                              onChange={(e) => setWeekEndInput(e.target.value === '' ? '' : Number(e.target.value))}
+                              min={Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.min(...filterOptions.week_number) : 1}
+                              max={Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.max(...filterOptions.week_number) : 53}
+                            />
+                            <button className="px-2 py-1 rounded border" onClick={() => applyWeekRange(filterOptions.week_number || [])}>应用范围</button>
+                            <button
+                              className="px-2 py-1 rounded border"
+                              onClick={() => {
+                                const weeks: number[] = filterOptions.week_number || [];
+                                const top = [...weeks].sort((a,b)=>b-a).slice(0, 4);
+                                handleFilterChange('week_number', top.sort((a,b)=>a-b));
+                              }}
+                            >最近4周</button>
+                          </div>
+                        )}
+                      </div>
+                      {/* 多选列表 */}
                       {filteredOptions.length > 0 ? (
                         filteredOptions.map((option: any) => (
                           <label
@@ -279,25 +522,110 @@ export default function FilterPanel() {
         })}
       </div>
 
-      {/* 筛选概要 */}
-      {hasActiveFilters && (
+      {/* 筛选概要与操作 */}
+      {(hasActiveFilters || hasUnsavedChanges) && (
         <div className="p-3 bg-muted/50 rounded-lg">
-          <div className="text-sm font-medium mb-2">当前筛选条件</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-medium">待应用的筛选条件</div>
+            <div className="text-xs text-muted-foreground">将筛选出 {previewCount.toLocaleString('zh-CN')} 条记录</div>
+          </div>
           <div className="space-y-1 text-xs text-muted-foreground">
-            {Object.entries(state.filters).map(([key, value]) => {
+            {Object.entries(draftFilters).map(([key, value]) => {
               const config = filterConfigs.find(c => c.id === key);
               if (!config || !value || (Array.isArray(value) && value.length === 0)) return null;
 
               return (
                 <div key={key}>
                   <span className="font-medium">{config.name}:</span>{' '}
-                  {Array.isArray(value) ? `${value.length}项已选择` : String(value)}
+                  {Array.isArray(value) ? (
+                    <span className="inline-flex flex-wrap gap-1 align-middle">
+                      {value.slice(0, 10).map((v) => (
+                        <span key={String(v)} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-accent rounded text-foreground">
+                          <span className="max-w-[10rem] truncate" title={String(v)}>{String(v)}</span>
+                          <button
+                            aria-label="移除"
+                            onClick={() => handleMultiSelectChange(key, v)}
+                            className="text-xs opacity-70 hover:opacity-100"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      {value.length > 10 && (
+                        <span className="text-muted-foreground">+{value.length - 10} 更多</span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-accent rounded text-foreground">
+                      <span>{String(value)}</span>
+                      <button
+                        aria-label="清除"
+                        onClick={() => handleFilterChange(key, null)}
+                        className="text-xs opacity-70 hover:opacity-100"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  )}
                 </div>
               );
             })}
           </div>
+          {applyErrors.length > 0 && (
+            <div className="mt-2 text-xs text-danger">
+              {applyErrors.join('，')}
+            </div>
+          )}
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              onClick={applyDraft}
+              disabled={!hasUnsavedChanges || !isDraftValid}
+              className={cn('px-3 py-2 text-sm rounded-md bg-primary text-primary-foreground disabled:opacity-50')}
+            >
+              应用筛选
+            </button>
+            <button
+              onClick={() => setPanelCollapsed(true)}
+              className="px-3 py-2 text-sm rounded-md border"
+            >
+              稍后再说
+            </button>
+            <button
+              onClick={cancelDraft}
+              disabled={!hasUnsavedChanges}
+              className="px-3 py-2 text-sm rounded-md border disabled:opacity-50"
+            >
+              取消更改
+            </button>
+          </div>
         </div>
       )}
+
+      {/* 方案与分享 */}
+      <div className="p-3 border rounded-lg space-y-2">
+        <div className="text-sm font-medium">筛选方案</div>
+        <div className="flex items-center gap-2">
+          <input
+            value={presetName}
+            onChange={(e) => setPresetName(e.target.value)}
+            placeholder="方案名称"
+            className="flex-1 px-2 py-1 text-sm border rounded"
+          />
+          <button onClick={addPreset} className="px-3 py-1.5 text-sm rounded-md border">保存方案</button>
+          <button onClick={copyShareLink} className="px-3 py-1.5 text-sm rounded-md border">复制分享链接</button>
+        </div>
+        {presets.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {presets.map(p => (
+              <span key={p.name} className="inline-flex items-center gap-2 px-2 py-1 rounded border text-sm">
+                <button className="hover:underline" onClick={() => applyPreset(p.name)}>{p.name}</button>
+                <button className="text-muted-foreground" onClick={() => deletePreset(p.name)}>删除</button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="text-xs text-muted-foreground">链接参数键：{FILTERS_QUERY_KEY}</div>
+      </div>
     </div>
   );
 }

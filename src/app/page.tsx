@@ -19,10 +19,10 @@ export default function HomePage() {
       {/* 页面标题和说明 */}
       <div className="flex items-center justify-between">
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-foreground to-muted-foreground">
             车险业务概况
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm md:text-base">
             车险变动成本明细分析 - 核心指标监控看板
           </p>
         </div>

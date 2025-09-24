@@ -3,11 +3,22 @@ import type { CarInsuranceRecord } from '@/types';
 /**
  * CSV数据验证结果
  */
+export type IssueLevel = 'error' | 'warning';
+
+export interface IssueDetail {
+  row: number; // 以1为基的行号（对应CSV可读行号）
+  field?: string;
+  level: IssueLevel;
+  message: string;
+}
+
 export interface ValidationResult {
   isValid: boolean;
   errors: string[];
   warnings: string[];
   recordCount: number;
+  issues: IssueDetail[];
+  skippedRows?: number;
 }
 
 /**
@@ -81,8 +92,7 @@ const REQUIRED_FIELDS: FieldConfig[] = [
     name: 'reported_claim_payment_yuan',
     displayName: '已报告赔款',
     type: 'number',
-    required: true,
-    validator: (value: number) => value >= 0
+    required: true
   },
   {
     name: 'expense_amount_yuan',
@@ -127,19 +137,60 @@ export function parseCSV(csvText: string): CarInsuranceRecord[] {
     try {
       const values = parseCSVLine(line);
       if (values.length !== headers.length) {
-        console.warn(`第${i + 1}行字段数量不匹配，跳过`);
+        console.warn(`第${i + 1}行字段数量不匹配，已跳过`);
         continue;
       }
 
       const record = parseRecord(headers, values);
       records.push(record);
     } catch (error) {
-      console.warn(`第${i + 1}行数据解析失败:`, error);
-      throw new Error(`第${i + 1}行数据解析失败: ${error}`);
+      // 放宽：单行解析失败不终止整体导入，记录警告并跳过该行
+      console.warn(`第${i + 1}行数据解析失败（已跳过）:`, error);
+      continue;
     }
   }
 
   return records;
+}
+
+/**
+ * 更丰富的解析：返回成功记录与逐行问题列表（不抛错）。
+ */
+export function parseCSVWithIssues(csvText: string): { records: CarInsuranceRecord[]; parseIssues: IssueDetail[]; skippedRows: number } {
+  const lines = csvText.trim().split('\n');
+  if (lines.length < 2) {
+    return { records: [], parseIssues: [{ row: 1, level: 'error', message: 'CSV文件格式不正确：缺少数据行' }], skippedRows: 0 };
+  }
+
+  const headers = parseCSVLine(lines[0]).map(h => h.trim().replace(/"/g, ''));
+  const records: CarInsuranceRecord[] = [];
+  const parseIssues: IssueDetail[] = [];
+  let skippedRows = 0;
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    try {
+      const values = parseCSVLine(line);
+      if (values.length !== headers.length) {
+        parseIssues.push({ row: i + 1, level: 'error', message: `字段数量不匹配（期望${headers.length}列，实际${values.length}列）` });
+        skippedRows++;
+        continue;
+      }
+      try {
+        const record = parseRecord(headers, values);
+        records.push(record);
+      } catch (e: any) {
+        parseIssues.push({ row: i + 1, level: 'error', message: e?.message || '该行数据解析失败' });
+        skippedRows++;
+      }
+    } catch (e: any) {
+      parseIssues.push({ row: i + 1, level: 'error', message: e?.message || '该行数据解析失败' });
+      skippedRows++;
+    }
+  }
+
+  return { records, parseIssues, skippedRows };
 }
 
 /**
@@ -247,15 +298,11 @@ function parseRecord(headers: string[], values: string[]): CarInsuranceRecord {
 export function validateCSVData(records: CarInsuranceRecord[]): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
+  const issues: IssueDetail[] = [];
 
   if (records.length === 0) {
     errors.push('数据文件为空');
-    return {
-      isValid: false,
-      errors,
-      warnings,
-      recordCount: 0
-    };
+    return { isValid: false, errors, warnings, recordCount: 0, issues, skippedRows: 0 };
   }
 
   // 检查必需字段
@@ -266,7 +313,9 @@ export function validateCSVData(records: CarInsuranceRecord[]): ValidationResult
     .map(field => field.displayName);
 
   if (missingFields.length > 0) {
-    errors.push(`缺少必需字段: ${missingFields.join(', ')}`);
+    const msg = `缺少必需字段: ${missingFields.join(', ')}`;
+    errors.push(msg);
+    issues.push({ row: 1, level: 'error', message: msg });
   }
 
   // 数据质量检查
@@ -286,7 +335,14 @@ export function validateCSVData(records: CarInsuranceRecord[]): ValidationResult
     });
 
     // 检查数值字段
-    const numericFields = ['signed_premium_yuan', 'matured_premium_yuan', 'policy_count', 'claim_case_count'];
+    const numericFields = [
+      'signed_premium_yuan',
+      'matured_premium_yuan',
+      'policy_count',
+      'claim_case_count',
+      'reported_claim_payment_yuan',
+      'expense_amount_yuan'
+    ];
     numericFields.forEach(fieldName => {
       const value = record[fieldName as keyof CarInsuranceRecord] as number;
 
@@ -296,22 +352,22 @@ export function validateCSVData(records: CarInsuranceRecord[]): ValidationResult
 
       if (value === undefined || value === null || isNaN(value)) {
         fieldStats[fieldName].nullCount++;
+        issues.push({ row: index + 2, field: fieldName, level: 'warning', message: '数值为空或非法' });
       } else if (value < 0) {
         fieldStats[fieldName].negativeCount++;
         if (fieldName === 'policy_count' || fieldName === 'claim_case_count') {
-          errors.push(`第${index + 1}行: ${fieldName}不能为负数`);
+          const msg = `第${index + 1}行: ${fieldName}不能为负数`;
+          errors.push(msg);
+          issues.push({ row: index + 2, field: fieldName, level: 'error', message: '不可为负数' });
           recordHasError = true;
+        } else {
+          issues.push({ row: index + 2, field: fieldName, level: 'warning', message: '出现负值（可能为冲销）' });
         }
       }
     });
 
-    // 业务逻辑检查
-    const policyCount = record.policy_count || 0;
-    const claimCount = record.claim_case_count || 0;
-
-    if (claimCount > policyCount && policyCount > 0) {
-      warnings.push(`第${index + 1}行: 赔案件数(${claimCount})超过保单件数(${policyCount})`);
-    }
+  // 业务逻辑检查
+  // 说明：赔案件数大于保单件数在部分业务场景（旧案跨期、并案等）可视为正常，因此不作为问题提示。
 
     if (recordHasError) {
       invalidRecords++;
@@ -373,7 +429,8 @@ export function validateCSVData(records: CarInsuranceRecord[]): ValidationResult
     isValid: errors.length === 0,
     errors,
     warnings,
-    recordCount: records.length
+    recordCount: records.length,
+    issues,
   };
 }
 
@@ -385,6 +442,10 @@ export function generateValidationReport(result: ValidationResult): string {
   report += `=================\n`;
   report += `记录总数: ${result.recordCount}\n`;
   report += `验证状态: ${result.isValid ? '通过' : '失败'}\n\n`;
+
+  if (typeof result.skippedRows === 'number') {
+    report += `解析阶段跳过行数: ${result.skippedRows}\n\n`;
+  }
 
   if (result.errors.length > 0) {
     report += `错误 (${result.errors.length}项):\n`;
@@ -399,6 +460,16 @@ export function generateValidationReport(result: ValidationResult): string {
     result.warnings.forEach((warning, index) => {
       report += `${index + 1}. ${warning}\n`;
     });
+    report += '\n';
+  }
+
+  if (result.issues && result.issues.length > 0) {
+    report += `问题明细 (${result.issues.length} 条):\n`;
+    result.issues.slice(0, 1000).forEach((iss, idx) => {
+      const loc = iss.field ? `第${iss.row}行 [${iss.field}]` : `第${iss.row}行`;
+      report += `${idx + 1}. [${iss.level.toUpperCase()}] ${loc}: ${iss.message}\n`;
+    });
+    if (result.issues.length > 1000) report += `… 仅显示前 1000 条\n`;
     report += '\n';
   }
 

@@ -1,9 +1,6 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { DashboardProvider } from '@/contexts/DashboardContext';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: '车险多维分析系统',
@@ -20,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      <body className={inter.className}>
+      <body>
         <DashboardProvider>
           <div className="min-h-screen bg-background">
             <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

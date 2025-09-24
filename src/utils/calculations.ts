@@ -131,6 +131,7 @@ export function calculateKPIMetrics(data: AggregatedData, previousData?: Aggrega
   );
 
   // 第三行：运营指标
+  // 满期出险率 = (赔案件数 / 保单件数) * (满期保费 / 签单保费) * 100
   const claimFrequency = safeDiv(data.claim_case_count, data.policy_count) * safeDiv(data.matured_premium, data.signed_premium) * 100;
   const avgPremium = safeDiv(data.signed_premium, data.policy_count);
   const avgClaimAmount = safeDiv(data.reported_claim_payment, data.claim_case_count);
@@ -149,7 +150,7 @@ export function calculateKPIMetrics(data: AggregatedData, previousData?: Aggrega
       prevClaimFrequency,
       '%',
       'operational',
-      'SUM(claim_case_count) / NULLIF(SUM(policy_count), 0) * (SUM(matured_premium_yuan) / NULLIF(SUM(signed_premium_yuan), 0)) * 100',
+      '(SUM(claim_case_count) / NULLIF(SUM(policy_count), 0)) * (SUM(matured_premium_yuan) / NULLIF(SUM(signed_premium_yuan), 0)) * 100',
       'negative' // 出险率上升是负面的
     ),
     createKPIMetric(

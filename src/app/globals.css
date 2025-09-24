@@ -73,6 +73,11 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    /* Apple Keynote 风格：柔和渐变背景 */
+    background-image:
+      radial-gradient(1200px 600px at 10% -10%, rgba(99,102,241,0.08), transparent 60%),
+      radial-gradient(1200px 600px at 110% 10%, rgba(16,185,129,0.08), transparent 60%),
+      radial-gradient(1200px 600px at 50% 120%, rgba(59,130,246,0.08), transparent 60%);
   }
 }
 
@@ -97,7 +102,8 @@
 
 /* KPI卡片的特殊样式 */
 .kpi-card {
-  @apply rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200 hover:shadow-md;
+  @apply rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md;
+  @apply bg-white/70 dark:bg-white/5 backdrop-blur supports-[backdrop-filter]:bg-white/50;
 }
 
 .kpi-card.positive {
@@ -131,7 +137,7 @@
 /* 响应式网格布局 */
 .dashboard-grid {
   display: grid;
-  gap: 1rem;
+  gap: 1.2rem;
   grid-template-columns: repeat(4, 1fr);
 }
 
@@ -139,6 +145,11 @@
   .dashboard-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* 玻璃态容器通用样式 */
+.glass {
+  @apply bg-white/60 dark:bg-white/5 backdrop-blur border border-white/20;
 }
 
 @media (max-width: 767px) {
