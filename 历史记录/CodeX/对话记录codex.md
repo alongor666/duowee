@@ -20,7 +20,7 @@
 
 2. **字段对照表合规的计算逻辑**
    - 比率基于聚合后绝对值重新计算
-   - 变动成本率 = (费用率×100) + (赔付率×100)
+   - 变动成本率 = (费用金额 ÷ 签单保费) + (已报告赔款 ÷ 满期保费)
    - 边际贡献率 = (1 - 变动成本率) × 100
    - 满期出险率含满期率修正系数
    - 所有公式严格按字段对照表执行
@@ -101,7 +101,7 @@ const calculatedVariableCostRatio = 1 - calculatedExpenseRatio - calculatedExpir
 **修正后的正确实现**：
 ```typescript
 // 正确：严格按字段对照表公式
-// variable_cost_ratio(%) = (费用金额÷跟单保费)×100 + (总赔款÷满期净保费)×100
+// variable_cost_ratio(%) = (费用金额÷签单保费)×100 + (已报告赔款÷满期保费)×100
 const calculatedVariableCostRatio = (calculatedExpenseRatio * 100) + (calculatedExpiredLossRatio * 100);
 
 // marginal_contribution_ratio(%) = (1 – variable_cost_ratio) × 100
@@ -157,7 +157,7 @@ export class DataMapper {
 ### 2. 字段对照表严格合规的计算逻辑
 ```typescript
 // 严格按字段对照表公式计算
-// 变动成本率(%) = (费用金额÷跟单保费)×100 + (总赔款÷满期净保费)×100
+// 变动成本率(%) = (费用金额÷签单保费)×100 + (已报告赔款÷满期保费)×100
 const calculatedVariableCostRatio = (calculatedExpenseRatio * 100) + (calculatedExpiredLossRatio * 100);
 
 // 边际贡献率(%) = (1 – 变动成本率) × 100
@@ -213,7 +213,7 @@ const calculatedClaimFrequency = (totals.claimCount / totals.policyCount) *
 #### 1. 计算逻辑验证测试
 - ✅ 单条记录测试: 通过
 - ✅ 多条记录聚合测试: 通过  
-- ✅ 变动成本率计算: 正确 (费用率×100 + 赔付率×100)
+- ✅ 变动成本率计算: 正确 (费用金额/签单保费 + 已报告赔款/满期保费)
 - ✅ 边际贡献率计算: 正确 ((1-变动成本率)×100)
 - ✅ 满期出险率计算: 正确 (含满期率修正)
 

@@ -7,7 +7,8 @@ import type {
   FilterState,
   ComparisonMode,
   KPIMetric,
-  AggregatedData
+  AggregatedData,
+  ImportSourceMeta
 } from '@/types';
 import {
   loadDataByPeriod,
@@ -16,6 +17,7 @@ import {
   validateDataQuality
 } from '@/utils/dataLoader';
 import { aggregateData, calculateKPIMetrics } from '@/utils/calculations';
+import { loadImportedData, saveImportedData } from '@/utils/dataStore';
 
 // Action类型定义
 type DashboardAction =
@@ -26,6 +28,7 @@ type DashboardAction =
   | { type: 'SET_COMPARISON'; payload: ComparisonMode }
   | { type: 'SET_KPI_METRICS'; payload: KPIMetric[] }
   | { type: 'SET_AGGREGATED_DATA'; payload: AggregatedData }
+  | { type: 'SET_IMPORT_SOURCES'; payload: ImportSourceMeta[] }
   | { type: 'RESET_FILTERS' }
   | { type: 'SET_LAST_UPDATED'; payload: Date };
 
@@ -56,7 +59,8 @@ const initialState: DashboardState = {
   },
   loading: false,
   error: null,
-  lastUpdated: null
+  lastUpdated: null,
+  importSources: []
 };
 
 // Reducer函数
@@ -83,6 +87,9 @@ function dashboardReducer(state: DashboardState, action: DashboardAction): Dashb
     case 'SET_AGGREGATED_DATA':
       return { ...state, aggregatedData: action.payload };
 
+    case 'SET_IMPORT_SOURCES':
+      return { ...state, importSources: action.payload };
+
     case 'RESET_FILTERS':
       return { ...state, filters: createDefaultFilters() };
 
@@ -99,7 +106,10 @@ interface DashboardContextType {
   state: DashboardState;
   dispatch: React.Dispatch<DashboardAction>;
   loadData: (year: number, weekStart: number, weekEnd?: number) => Promise<void>;
-  loadDataFromRecords: (records: CarInsuranceRecord[]) => Promise<void>;
+  loadDataFromRecords: (
+    records: CarInsuranceRecord[],
+    options?: { mode?: 'replace' | 'append'; sources?: ImportSourceMeta[]; warnings?: string[] }
+  ) => Promise<void>;
   updateFilters: (filters: FilterState) => void;
   updateComparison: (comparison: ComparisonMode) => void;
   resetFilters: () => void;
@@ -159,28 +169,45 @@ export function DashboardProvider({ children }: DashboardProviderProps) {
   /**
    * 从记录数组直接加载数据
    */
-  const loadDataFromRecords = async (records: CarInsuranceRecord[]) => {
+  const loadDataFromRecords = async (
+    records: CarInsuranceRecord[],
+    options?: { mode?: 'replace' | 'append'; sources?: ImportSourceMeta[]; warnings?: string[] }
+  ) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
       console.log(`开始加载导入数据: ${records.length} 条记录`);
 
+      const mode = options?.mode ?? 'replace';
+      const sources = options?.sources ?? [];
+      const mergedRecords = mode === 'append' ? [...state.data, ...records] : records;
+      const mergedSources = mode === 'append' ? [...state.importSources, ...sources] : sources;
+
       // 数据质量检查
-      const qualityIssues = validateDataQuality(records);
+      const qualityIssues = validateDataQuality(mergedRecords);
       if (qualityIssues.length > 0) {
         console.warn('数据质量问题:', qualityIssues);
       }
 
-      dispatch({ type: 'SET_DATA', payload: records });
-      dispatch({ type: 'SET_LAST_UPDATED', payload: new Date() });
+      dispatch({ type: 'SET_DATA', payload: mergedRecords });
+      dispatch({ type: 'SET_IMPORT_SOURCES', payload: mergedSources });
+      const now = new Date();
+      dispatch({ type: 'SET_LAST_UPDATED', payload: now });
 
       // 重置筛选器为默认状态
       const defaultFilters = createDefaultFilters();
       dispatch({ type: 'SET_FILTERS', payload: defaultFilters });
 
       // 计算聚合数据和KPI指标
-      await updateCalculations(records, defaultFilters, state.comparison);
+      await updateCalculations(mergedRecords, defaultFilters, state.comparison);
+
+      await saveImportedData(mergedRecords, {
+        createdAt: now.toISOString(),
+        records: mergedRecords,
+        sources: mergedSources,
+        warnings: options?.warnings ?? []
+      });
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '数据导入失败';
@@ -291,11 +318,33 @@ export function DashboardProvider({ children }: DashboardProviderProps) {
 
   // 初始化加载
   useEffect(() => {
-    const currentYear = new Date().getFullYear();
-    const currentWeek = getWeekNumber(new Date());
+    let cancelled = false;
+    const bootstrap = async () => {
+      try {
+        const snapshot = await loadImportedData();
+        if (cancelled) return;
+        if (snapshot && snapshot.records.length > 0) {
+          dispatch({ type: 'SET_DATA', payload: snapshot.records });
+          dispatch({ type: 'SET_IMPORT_SOURCES', payload: snapshot.sources });
+          dispatch({ type: 'SET_LAST_UPDATED', payload: new Date(snapshot.createdAt) });
+          await updateCalculations(snapshot.records, state.filters, state.comparison);
+          return;
+        }
+      } catch (error) {
+        console.warn('本地数据恢复失败:', error);
+      }
 
-    // 加载当前周数据
-    loadData(currentYear, Math.max(1, currentWeek - 1)); // 加载上周数据，避免当周数据未更新
+      if (cancelled) return;
+      const currentYear = new Date().getFullYear();
+      const currentWeek = getWeekNumber(new Date());
+      await loadData(currentYear, Math.max(1, currentWeek - 1));
+    };
+
+    bootstrap();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

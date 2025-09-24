@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, Filter, X, RotateCcw } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -13,6 +13,7 @@ export default function FilterPanel() {
   const { state, updateFilters } = useDashboard();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedFilters, setExpandedFilters] = useState<string[]>(['policy_start_year', 'week_number', 'third_level_organization', 'insurance_type', 'coverage_type']);
   const [filterOptions, setFilterOptions] = useState<any>({});
@@ -32,6 +33,17 @@ export default function FilterPanel() {
   useEffect(() => {
     setDraftFilters(state.filters);
   }, [state.filters]);
+
+  useEffect(() => {
+    if (panelCollapsed) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        setPanelCollapsed(true);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [panelCollapsed]);
 
   // 从URL或本地存储恢复筛选
   useEffect(() => {
@@ -56,7 +68,7 @@ export default function FilterPanel() {
   }, []);
 
   // 筛选器配置
-  const filterConfigs = [
+  const filterConfigs = useMemo(() => ([
     {
       id: 'policy_start_year',
       name: '保单起期年度',
@@ -134,7 +146,7 @@ export default function FilterPanel() {
       name: '公路风险等级',
       type: 'multiSelect' as const
     }
-  ];
+  ]), []);
 
   const toggleFilter = (filterId: string) => {
     setExpandedFilters(prev =>
@@ -187,6 +199,23 @@ export default function FilterPanel() {
     handleFilterChange('week_number', inRange);
   };
 
+  const commitFilters = useCallback((next: FilterState, collapseAfter = true) => {
+    setDraftFilters(next);
+    setApplyErrors([]);
+    updateFilters(next);
+    try {
+      localStorage.setItem('filters:last', JSON.stringify(next));
+    } catch {}
+    if (typeof window !== 'undefined') {
+      const query = encodeFiltersToQuery(next);
+      const url = `${window.location.pathname}?${query}`;
+      router.replace(url);
+    }
+    if (collapseAfter) {
+      setPanelCollapsed(true);
+    }
+  }, [router, updateFilters]);
+
   const getFilteredOptions = (options: any[], searchTerm: string) => {
     if (!searchTerm) return options;
     return options.filter(option =>
@@ -214,6 +243,51 @@ export default function FilterPanel() {
     return filterData(state.data, draftFilters).length;
   }, [draftFilters, state.data]);
 
+  const quickActions = useMemo(() => {
+    const years = Array.isArray(filterOptions.policy_start_year) ? [...filterOptions.policy_start_year].sort((a: number, b: number) => b - a) : [];
+    const weeks = Array.isArray(filterOptions.week_number) ? [...filterOptions.week_number].sort((a: number, b: number) => b - a) : [];
+    const latestYear = years[0];
+    const latestWeek = weeks[0];
+    return [
+      {
+        key: 'latest-week',
+        label: latestWeek ? `最新周(${latestWeek})` : '最新周',
+        disabled: !latestWeek,
+        apply: () => commitFilters({
+          ...draftFilters,
+          week_number: latestWeek ? [latestWeek] : []
+        })
+      },
+      {
+        key: 'recent-four',
+        label: '最近4周',
+        disabled: weeks.length === 0,
+        apply: () => commitFilters({
+          ...draftFilters,
+          week_number: weeks.slice(0, 4).sort((a, b) => a - b)
+        })
+      },
+      {
+        key: 'current-year',
+        label: latestYear ? `${latestYear}年度` : '本年度',
+        disabled: !latestYear,
+        apply: () => commitFilters({
+          ...draftFilters,
+          policy_start_year: latestYear ? [latestYear] : []
+        })
+      },
+      {
+        key: 'commercial-only',
+        label: '仅商业险',
+        disabled: !(Array.isArray(filterOptions.insurance_type) && filterOptions.insurance_type.includes('商业保险')),
+        apply: () => commitFilters({
+          ...draftFilters,
+          insurance_type: ['商业保险']
+        })
+      }
+    ];
+  }, [filterOptions, draftFilters, commitFilters]);
+
   const validateRequired = (filters: FilterState) => {
     const errors: string[] = [];
     if (!filters.policy_start_year || filters.policy_start_year.length === 0) {
@@ -231,17 +305,7 @@ export default function FilterPanel() {
     const errs = validateRequired(draftFilters);
     setApplyErrors(errs);
     if (errs.length > 0) return;
-    updateFilters(draftFilters);
-    // 持久化最近一次筛选
-    try {
-      localStorage.setItem('filters:last', JSON.stringify(draftFilters));
-    } catch {}
-    // 写入URL
-    const query = encodeFiltersToQuery(draftFilters);
-    const url = `${window.location.pathname}?${query}`;
-    router.replace(url);
-    // 应用后自动收起
-    setPanelCollapsed(true);
+    commitFilters({ ...draftFilters });
   };
 
   const cancelDraft = () => {
@@ -283,7 +347,7 @@ export default function FilterPanel() {
   const applyPreset = (name: string) => {
     const p = presets.find(p => p.name === name);
     if (!p) return;
-    setDraftFilters(p.filters);
+    commitFilters({ ...p.filters });
   };
 
   const deletePreset = (name: string) => {
@@ -311,35 +375,50 @@ export default function FilterPanel() {
       if (Array.isArray(v) && v.length > 0) chips.push({ label: cfg.name, values: v.slice(0, 3).map(String) });
     });
     return chips;
-  }, [draftFilters]);
+  }, [draftFilters, filterConfigs]);
 
   if (panelCollapsed) {
     const total = state.data.length > 0 ? filterData(state.data, draftFilters).length : 0;
     return (
-      <div className="glass rounded-lg border p-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-primary" />
-          <div className="text-sm">
-            已应用 {getActiveFilterCount(draftFilters)} 项筛选（{total.toLocaleString('zh-CN')} 条记录）
-          </div>
-          <div className="hidden md:flex items-center gap-2">
-            {summaryChips.map((c) => (
-              <span key={c.label} className="text-xs px-2 py-1 rounded bg-primary/10 text-primary">
-                {c.label}: {c.values.join('、')}{c.values.length === 3 ? '…' : ''}
-              </span>
+      <div ref={panelRef} className="glass rounded-lg border p-3 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <Filter className="h-4 w-4 text-primary" />
+        <div className="text-sm">
+          已应用 {getActiveFilterCount(draftFilters)} 项筛选（{total.toLocaleString('zh-CN')} 条记录）
+        </div>
+        <div className="hidden md:flex items-center gap-2">
+          {summaryChips.map((c) => (
+            <span key={c.label} className="text-xs px-2 py-1 rounded bg-primary/10 text-primary">
+              {c.label}: {c.values.join('、')}{c.values.length === 3 ? '…' : ''}
+            </span>
+          ))}
+        </div>
+      </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="hidden lg:flex items-center gap-2 mr-2">
+            {quickActions.map(action => (
+              <button
+                key={action.key}
+                disabled={action.disabled}
+                onClick={action.apply}
+                className={cn(
+                  'px-2 py-1 text-xs rounded-full border transition-colors',
+                  action.disabled ? 'text-muted-foreground/60 border-muted-foreground/20 cursor-not-allowed' : 'text-primary border-primary/40 hover:bg-primary/10'
+                )}
+              >
+                {action.label}
+              </button>
             ))}
           </div>
-        </div>
-        <div className="flex items-center gap-2">
           <button onClick={() => setPanelCollapsed(false)} className="px-3 py-1.5 text-sm rounded-md border">调整筛选</button>
-          <button onClick={resetDraft} className="px-3 py-1.5 text-sm rounded-md border">清空</button>
+          <button onClick={() => commitFilters(createDefaultFilters())} className="px-3 py-1.5 text-sm rounded-md border">清空</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div ref={panelRef} className="space-y-4">
       {/* 筛选器标题和控制 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
@@ -389,6 +468,34 @@ export default function FilterPanel() {
             <X className="h-4 w-4" />
           </button>
         )}
+      </div>
+
+      {/* 快捷筛选 */}
+      <div className="flex flex-wrap items-center gap-2">
+        {quickActions.map(action => (
+          <button
+            key={action.key}
+            disabled={action.disabled}
+            onClick={() => {
+              action.apply();
+              setPanelCollapsed(true);
+            }}
+            className={cn(
+              'px-2.5 py-1 text-xs rounded-full border transition-colors',
+              action.disabled
+                ? 'text-muted-foreground/60 border-muted-foreground/20 cursor-not-allowed'
+                : 'text-primary border-primary/40 hover:bg-primary/10'
+            )}
+          >
+            {action.label}
+          </button>
+        ))}
+        <button
+          onClick={() => commitFilters(createDefaultFilters())}
+          className="px-2.5 py-1 text-xs rounded-full border border-muted-foreground/30 text-muted-foreground hover:bg-muted/50"
+        >
+          清空筛选
+        </button>
       </div>
 
       {/* 筛选器列表 */}

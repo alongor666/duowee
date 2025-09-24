@@ -114,6 +114,7 @@ export interface DashboardState {
   loading: boolean;
   error: string | null;
   lastUpdated: Date | null;
+  importSources: ImportSourceMeta[];
 }
 
 // 元数据类型
@@ -209,6 +210,21 @@ export interface ShareConfig {
   filters: FilterState;
   comparison: ComparisonMode;
   expires?: Date;
+}
+
+export interface ImportSourceMeta {
+  fileName: string;
+  rowCount: number;
+  years: number[];
+  weeks: number[];
+  uploadedAt: string;
+}
+
+export interface StoredImportSnapshot {
+  createdAt: string;
+  records: CarInsuranceRecord[];
+  sources: ImportSourceMeta[];
+  warnings?: string[];
 }
 
 // 用户设置类型
