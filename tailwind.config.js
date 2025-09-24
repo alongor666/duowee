@@ -52,16 +52,20 @@ module.exports = {
           foreground: "hsl(var(--card-foreground))",
         },
         success: {
-          DEFAULT: "#10b981",
+          DEFAULT: "#12B76A",
           foreground: "#ffffff",
         },
         warning: {
-          DEFAULT: "#f59e0b",
+          DEFAULT: "#F79009",
           foreground: "#ffffff",
         },
         danger: {
-          DEFAULT: "#ef4444",
+          DEFAULT: "#F04438",
           foreground: "#ffffff",
+        },
+        info: {
+          DEFAULT: "#1D4ED8",
+          foreground: "#f8fafc",
         },
       },
       borderRadius: {

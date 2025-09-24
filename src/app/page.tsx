@@ -19,10 +19,10 @@ export default function HomePage() {
       {/* 页面标题和说明 */}
       <div className="flex items-center justify-between">
         <div className="space-y-2">
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-foreground to-muted-foreground">
+          <h1 className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-info to-primary/70 font-semibold">
             车险业务概况
           </h1>
-          <p className="text-muted-foreground text-sm md:text-base">
+          <p className="text-muted-foreground text-sm md:text-base max-w-xl">
             车险变动成本明细分析 - 核心指标监控看板
           </p>
         </div>
@@ -78,7 +78,7 @@ export default function HomePage() {
         {!state.loading && !state.error && state.data.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold tracking-tight">
+              <h2 className="text-[2rem] font-semibold leading-tight tracking-tight">
                 核心指标看板
               </h2>
               {state.lastUpdated && (
@@ -97,7 +97,7 @@ export default function HomePage() {
         {/* 数据概要信息 */}
         {!state.loading && !state.error && state.data.length > 0 && (
           <div className="rounded-lg border bg-card p-6">
-            <h3 className="text-lg font-semibold mb-4">数据概要</h3>
+            <h3 className="text-[1.5rem] font-semibold mb-4 leading-tight">数据概要</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <div className="text-muted-foreground">数据记录</div>
