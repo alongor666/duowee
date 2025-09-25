@@ -1,6 +1,13 @@
-import { TrendingUp, TrendingDown, AlertTriangle, Minus } from 'lucide-react';
+import {
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  Minus,
+  CornerDownRight,
+  BookmarkPlus
+} from 'lucide-react';
 import { cn } from '@/utils/cn';
-import type { KPIMetric } from '@/types';
+import type { KPIAction, KPIMetric } from '@/types';
 import { formatValue, formatChange, formatChangePercent } from '@/utils/calculations';
 
 interface KPICardProps {
@@ -36,114 +43,161 @@ export default function KPICard({ metric, onClick, className }: KPICardProps) {
   };
 
   // 卡片样式
-  const getCardStyle = () => {
-    const baseStyle = 'kpi-card p-4 cursor-pointer transition-all duration-200 hover:scale-[1.02]';
+  const getCardStyle = () =>
+    'kpi-card p-4 cursor-pointer transition-all duration-200 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2';
 
+  const getAccentTone = () => {
     switch (changeType) {
       case 'positive':
-        return `${baseStyle} positive`;
+        return 'bg-success/15 text-success';
       case 'negative':
-        return `${baseStyle} negative`;
+        return 'bg-danger/15 text-danger';
       case 'warning':
-        return `${baseStyle} warning`;
+        return 'bg-warning/15 text-warning';
       default:
-        return baseStyle;
-    }
-  };
-
-  // 变化值颜色
-  const getChangeColor = () => {
-    switch (changeType) {
-      case 'positive':
-        return 'text-success';
-      case 'negative':
-        return 'text-danger';
-      case 'warning':
-        return 'text-warning';
-      default:
-        return 'text-muted-foreground';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
   const formattedValue = formatValue(value, unit);
   const formattedChange = change !== undefined ? formatChange(change, unit) : undefined;
-  const formattedChangePercent = changePercent !== undefined ? formatChangePercent(changePercent) : undefined;
+  const formattedChangePercent =
+    changePercent !== undefined ? formatChangePercent(changePercent) : undefined;
+
+  const renderActionIcon = (action: KPIAction) => {
+    switch (action.action) {
+      case 'drilldown':
+        return <CornerDownRight className="h-3.5 w-3.5" />;
+      case 'pin':
+        return <BookmarkPlus className="h-3.5 w-3.5" />;
+      default:
+        return null;
+    }
+  };
 
   return (
     <div
-      className={cn(getCardStyle(), className)}
+      className={cn(
+        getCardStyle(),
+        {
+          'border-l-[3px] border-l-success/70': changeType === 'positive',
+          'border-l-[3px] border-l-danger/70': changeType === 'negative',
+          'border-l-[3px] border-l-warning/70': changeType === 'warning',
+          'border-l-[3px] border-l-muted': changeType === 'neutral'
+        },
+        className
+      )}
       onClick={onClick}
       title={description}
     >
-      {/* 指标名称 */}
-      <div className="flex items-start justify-between mb-3">
-        <h3 className="text-sm font-medium text-muted-foreground leading-tight">
-          {name}
-        </h3>
-        {(change !== undefined || changePercent !== undefined) && (
-          <div className="flex items-center space-x-1">
-            {getChangeIcon()}
+      <div className="flex flex-col h-full gap-4">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-end gap-2">
+                <span className="text-[2.125rem] font-semibold leading-none text-foreground">
+                  {formattedValue}
+                </span>
+                {unit && (
+                  <span className="text-sm font-medium text-muted-foreground mb-0.5">
+                    {unit}
+                  </span>
+                )}
+              </div>
+              <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-primary/80">
+                {name}
+              </p>
+            </div>
+            {(formattedChange || formattedChangePercent) && (
+              <div className={cn('flex h-10 w-10 items-center justify-center rounded-full', getAccentTone())}>
+                {getChangeIcon()}
+              </div>
+            )}
+          </div>
+
+          {(formattedChange || formattedChangePercent) && (
+            <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground/80">
+              {formattedChangePercent && <span>{formattedChangePercent}</span>}
+              {formattedChange && (
+                <span>
+                  {formattedChange}
+                  {unit}
+                </span>
+              )}
+              <span className="text-xs font-normal text-muted-foreground">vs 上期</span>
+            </div>
+          )}
+
+          {metric.quickInsight && (
+            <p className="text-sm font-medium leading-snug text-foreground/85">
+              {metric.quickInsight}
+            </p>
+          )}
+        </div>
+
+        {metric.dimensionTags && metric.dimensionTags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {metric.dimensionTags.map(tag => (
+              <span
+                key={tag}
+                className="inline-flex items-center rounded-full bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary"
+              >
+                {tag}
+              </span>
+            ))}
           </div>
         )}
-      </div>
 
-      {/* 当前值 */}
-      <div className="mb-2">
-        <div className="text-2xl font-bold text-foreground animate-counter">
-          {formattedValue}
-          {unit && (
-            <span className="text-sm font-normal text-muted-foreground ml-1">
-              {unit}
+        <div className="mt-auto space-y-3 border-t border-dashed border-border/70 pt-3">
+          {previousValue !== undefined && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>上期值</span>
+              <span>
+                {formatValue(previousValue, unit)}
+                {unit}
+              </span>
+            </div>
+          )}
+
+          {description && (
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {description}
+            </p>
+          )}
+
+          {metric.actions && metric.actions.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {metric.actions.map(action => (
+                <button
+                  key={action.label}
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-transparent bg-primary/10 px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1"
+                  onClick={event => {
+                    event.stopPropagation();
+                    onClick?.();
+                  }}
+                >
+                  {renderActionIcon(action)}
+                  <span>{action.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground/90">
+              {metric.category === 'absolute' && '绝对值指标'}
+              {metric.category === 'ratio' && '率值指标'}
+              {metric.category === 'operational' && '运营指标'}
+              {metric.category === 'commercial' && '商业险指标'}
             </span>
-          )}
-        </div>
-      </div>
-
-      {/* 变化信息 */}
-      {(formattedChange || formattedChangePercent) && (
-        <div className="space-y-1">
-          {formattedChange && (
-            <div className={cn('text-sm font-medium', getChangeColor())}>
-              {formattedChange} {unit}
-            </div>
-          )}
-          {formattedChangePercent && (
-            <div className={cn('text-xs', getChangeColor())}>
-              {formattedChangePercent}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 对比期信息 */}
-      {previousValue !== undefined && (
-        <div className="mt-2 pt-2 border-t border-border/50">
-          <div className="text-xs text-muted-foreground">
-            对比期: {formatValue(previousValue, unit)} {unit}
+            <span className="text-xs font-medium text-muted-foreground/80">
+              {changeType === 'positive' && '正向'}
+              {changeType === 'negative' && '负向'}
+              {changeType === 'warning' && '异常'}
+              {changeType === 'neutral' && '稳定'}
+            </span>
           </div>
-        </div>
-      )}
-
-      {/* 变化性质标识 */}
-      <div className="mt-2 flex items-center justify-between">
-        <div className={cn('text-xs px-2 py-1 rounded', {
-          'bg-success/10 text-success': changeType === 'positive',
-          'bg-danger/10 text-danger': changeType === 'negative',
-          'bg-warning/10 text-warning': changeType === 'warning',
-          'bg-muted/50 text-muted-foreground': changeType === 'neutral'
-        })}>
-          {changeType === 'positive' && '正向'}
-          {changeType === 'negative' && '负向'}
-          {changeType === 'warning' && '异常'}
-          {changeType === 'neutral' && '稳定'}
-        </div>
-
-        {/* 类别标识 */}
-        <div className="text-xs text-muted-foreground">
-          {metric.category === 'absolute' && '绝对值'}
-          {metric.category === 'ratio' && '率值'}
-          {metric.category === 'operational' && '运营'}
-          {metric.category === 'commercial' && '商业险'}
         </div>
       </div>
     </div>

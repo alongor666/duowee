@@ -42,6 +42,11 @@ export interface AggregatedData {
 }
 
 // KPI指标类型
+export interface KPIAction {
+  label: string;
+  action: 'drilldown' | 'pin';
+}
+
 export interface KPIMetric {
   id: string;
   name: string;
@@ -54,6 +59,9 @@ export interface KPIMetric {
   formula?: string;
   category: 'absolute' | 'ratio' | 'operational' | 'commercial';
   description?: string;
+  quickInsight?: string;
+  dimensionTags?: string[];
+  actions?: KPIAction[];
 }
 
 // 筛选器配置类型

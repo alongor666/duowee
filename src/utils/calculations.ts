@@ -1,4 +1,4 @@
-import type { CarInsuranceRecord, AggregatedData, KPIMetric } from '@/types';
+import type { CarInsuranceRecord, AggregatedData, KPIAction, KPIMetric } from '@/types';
 
 /**
  * 聚合原始数据
@@ -269,17 +269,45 @@ function createKPIMetric(
     }
   }
 
+  const quickInsight =
+    changePercent !== undefined
+      ? `${change && change < 0 ? '↓' : change && change > 0 ? '↑' : '≈'}${Math.abs(changePercent).toFixed(1)}% 对比上期`
+      : '暂无对比数据，请导入更多历史周次';
+
+  const dimensionTagMap: Record<KPIMetric['category'], string[]> = {
+    absolute: ['机构', '险种'],
+    ratio: ['趋势', '效率'],
+    operational: ['运营', '效率'],
+    commercial: ['商业险', '渠道']
+  };
+
+  const metricActions: KPIAction[] = [
+    { label: '下钻分析', action: 'drilldown' },
+    { label: '加入收藏', action: 'pin' }
+  ];
+
+  const description =
+    previousValue !== undefined && change !== undefined
+      ? `上期为 ${formatValue(previousValue, unit)}${unit}，本期${change >= 0 ? '增加' : '减少'} ${formatValue(Math.abs(change), unit)}${unit}。`
+      : '等待对比数据生成趋势解读。';
+
   return {
     id,
     name,
     value: Number(value.toFixed(2)),
-    previousValue: previousValue ? Number(previousValue.toFixed(2)) : undefined,
-    change: change ? Number(change.toFixed(2)) : undefined,
-    changePercent: changePercent ? Number(changePercent.toFixed(2)) : undefined,
+    previousValue:
+      previousValue !== undefined ? Number(previousValue.toFixed(2)) : undefined,
+    change: change !== undefined ? Number(change.toFixed(2)) : undefined,
+    changePercent:
+      changePercent !== undefined ? Number(changePercent.toFixed(2)) : undefined,
     changeType,
     unit,
     formula,
-    category
+    category,
+    quickInsight,
+    dimensionTags: dimensionTagMap[category],
+    actions: metricActions,
+    description
   };
 }
 
