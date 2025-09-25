@@ -244,6 +244,16 @@ export function filterData(records: CarInsuranceRecord[], filters: FilterState):
       return false;
     }
 
+    // 大货车评分筛选
+    if (filters.large_truck_score.length > 0 && !filters.large_truck_score.includes(record.large_truck_score)) {
+      return false;
+    }
+
+    // 小货车评分筛选
+    if (filters.small_truck_score.length > 0 && !filters.small_truck_score.includes(record.small_truck_score)) {
+      return false;
+    }
+
     return true;
   });
 }
@@ -296,6 +306,8 @@ export function getFilterOptions(records: CarInsuranceRecord[]) {
     terminal_source: [...new Set(records.map(r => r.terminal_source))].sort(),
     vehicle_insurance_grade: [...new Set(records.map(r => r.vehicle_insurance_grade))].filter(Boolean).sort(),
     highway_risk_grade: [...new Set(records.map(r => r.highway_risk_grade))].filter(Boolean).sort(),
+    large_truck_score: [...new Set(records.map(r => r.large_truck_score))].filter(Boolean).sort(),
+    small_truck_score: [...new Set(records.map(r => r.small_truck_score))].filter(Boolean).sort(),
   };
 
   return options;
@@ -319,6 +331,8 @@ export function createDefaultFilters(): FilterState {
     is_transferred_vehicle: null,
     vehicle_insurance_grade: [],
     highway_risk_grade: [],
+    large_truck_score: [],
+    small_truck_score: [],
   };
 }
 

@@ -67,8 +67,8 @@ export default function FilterPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 筛选器配置
-  const filterConfigs = useMemo(() => ([
+  // 筛选器基础配置
+  const baseFilterConfigs = useMemo(() => ([
     {
       id: 'policy_start_year',
       name: '保单起期年度',
@@ -145,8 +145,77 @@ export default function FilterPanel() {
       id: 'highway_risk_grade',
       name: '公路风险等级',
       type: 'multiSelect' as const
+    },
+    {
+      id: 'large_truck_score',
+      name: '大货车评分',
+      type: 'multiSelect' as const
+    },
+    {
+      id: 'small_truck_score',
+      name: '小货车评分',
+      type: 'multiSelect' as const
     }
   ]), []);
+
+  /**
+   * 计算货车评分筛选器的可见性与联动提示
+   */
+  const truckFilterVisibility = useMemo(() => {
+    const selections = draftFilters.business_type_category;
+    const hasSelection = selections.length > 0;
+    const hasTruck = selections.some(value => value.includes('货车'));
+    const includesLargeTruck = selections.includes('9吨以上货车');
+    const includesOtherTruck = selections.some(value => value.includes('货车') && value !== '9吨以上货车');
+
+    const showLarge = !hasSelection || hasTruck;
+    const showSmall = !hasSelection || (hasTruck && (!includesLargeTruck || includesOtherTruck));
+
+    return {
+      showLarge,
+      showSmall,
+      highlightPassenger: selections.includes('非营业个人客车')
+    };
+  }, [draftFilters.business_type_category]);
+
+  const filterConfigs = useMemo(() => {
+    return baseFilterConfigs.filter(config => {
+      if (config.id === 'large_truck_score') {
+        return truckFilterVisibility.showLarge;
+      }
+      if (config.id === 'small_truck_score') {
+        return truckFilterVisibility.showSmall;
+      }
+      return true;
+    });
+  }, [baseFilterConfigs, truckFilterVisibility.showLarge, truckFilterVisibility.showSmall]);
+
+  // 当业务类型不支持货车评分时自动清空相关筛选
+  useEffect(() => {
+    if (!truckFilterVisibility.showLarge && draftFilters.large_truck_score.length > 0) {
+      setDraftFilters(prev => ({
+        ...prev,
+        large_truck_score: []
+      }));
+    }
+    if (!truckFilterVisibility.showSmall && draftFilters.small_truck_score.length > 0) {
+      setDraftFilters(prev => ({
+        ...prev,
+        small_truck_score: []
+      }));
+    }
+  }, [truckFilterVisibility.showLarge, truckFilterVisibility.showSmall, draftFilters.large_truck_score.length, draftFilters.small_truck_score.length]);
+
+  // 选择非营业个人客车时自动展开车险等级筛选
+  useEffect(() => {
+    if (truckFilterVisibility.highlightPassenger) {
+      setExpandedFilters(prev => (
+        prev.includes('vehicle_insurance_grade')
+          ? prev
+          : [...prev, 'vehicle_insurance_grade']
+      ));
+    }
+  }, [truckFilterVisibility.highlightPassenger]);
 
   const toggleFilter = (filterId: string) => {
     setExpandedFilters(prev =>
@@ -369,13 +438,13 @@ export default function FilterPanel() {
     const chips: Array<{ label: string; values: string[] }> = [];
     const showKeys = ['policy_start_year', 'week_number', 'third_level_organization', 'insurance_type', 'coverage_type'] as const;
     showKeys.forEach((key) => {
-      const cfg = filterConfigs.find(c => c.id === key);
+      const cfg = baseFilterConfigs.find(c => c.id === key);
       const v = draftFilters[key as keyof FilterState] as any;
       if (!cfg) return;
       if (Array.isArray(v) && v.length > 0) chips.push({ label: cfg.name, values: v.slice(0, 3).map(String) });
     });
     return chips;
-  }, [draftFilters, filterConfigs]);
+  }, [draftFilters, baseFilterConfigs]);
 
   if (panelCollapsed) {
     const total = state.data.length > 0 ? filterData(state.data, draftFilters).length : 0;
@@ -638,7 +707,7 @@ export default function FilterPanel() {
           </div>
           <div className="space-y-1 text-xs text-muted-foreground">
             {Object.entries(draftFilters).map(([key, value]) => {
-              const config = filterConfigs.find(c => c.id === key);
+              const config = baseFilterConfigs.find(c => c.id === key);
               if (!config || !value || (Array.isArray(value) && value.length === 0)) return null;
 
               return (
