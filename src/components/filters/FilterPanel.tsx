@@ -20,6 +20,7 @@ export default function FilterPanel() {
   const [draftFilters, setDraftFilters] = useState<FilterState>(state.filters);
   const [applyErrors, setApplyErrors] = useState<string[]>([]);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // 当数据加载完成后，计算可用的筛选选项
   useEffect(() => {
@@ -67,64 +68,79 @@ export default function FilterPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 筛选器配置
+  // 筛选器配置 - 按使用频率分级
   const filterConfigs = useMemo(() => ([
+    // 第一层：常用必选项
     {
       id: 'policy_start_year',
       name: '保单起期年度',
       type: 'multiSelect' as const,
-      required: true
+      required: true,
+      tier: 1
     },
     {
       id: 'week_number',
       name: '周次',
       type: 'multiSelect' as const,
-      required: true
+      required: true,
+      tier: 1
     },
+    // 第一层：常用可选项
     {
       id: 'chengdu_branch',
       name: '机构层级',
-      type: 'multiSelect' as const
+      type: 'multiSelect' as const,
+      tier: 1
     },
     {
       id: 'third_level_organization',
       name: '三级机构',
-      type: 'multiSelect' as const
+      type: 'multiSelect' as const,
+      tier: 1
     },
     {
       id: 'insurance_type',
       name: '保险类型',
-      type: 'multiSelect' as const
+      type: 'multiSelect' as const,
+      tier: 1
     },
     {
       id: 'coverage_type',
       name: '险种',
-      type: 'multiSelect' as const
+      type: 'multiSelect' as const,
+      tier: 1
     },
+    // 第二层：业务维度
     {
       id: 'business_type_category',
       name: '业务类型',
-      type: 'multiSelect' as const
+      type: 'multiSelect' as const,
+      tier: 2
     },
     {
       id: 'customer_category_3',
       name: '客户分类',
-      type: 'multiSelect' as const
+      type: 'multiSelect' as const,
+      tier: 2
     },
     {
       id: 'renewal_status',
       name: '续期状态',
-      type: 'multiSelect' as const
+      type: 'multiSelect' as const,
+      tier: 2
     },
     {
       id: 'terminal_source',
       name: '终端来源',
-      type: 'multiSelect' as const
+      type: 'multiSelect' as const,
+      tier: 2
     },
+    // 第二层：车辆属性
     {
       id: 'is_new_energy_vehicle',
       name: '新能源车',
       type: 'select' as const,
+      tier: 2,
       options: [
         { label: '全部', value: null },
         { label: '是', value: true },
@@ -135,31 +151,37 @@ export default function FilterPanel() {
       id: 'is_transferred_vehicle',
       name: '过户车',
       type: 'select' as const,
+      tier: 2,
       options: [
         { label: '全部', value: null },
         { label: '是', value: true },
         { label: '否', value: false }
       ]
     },
+    // 第三层：高级筛选
     {
       id: 'vehicle_insurance_grade',
       name: '车险等级',
-      type: 'multiSelect' as const
+      type: 'multiSelect' as const,
+      tier: 3
     },
     {
       id: 'highway_risk_grade',
       name: '公路风险等级',
-      type: 'multiSelect' as const
+      type: 'multiSelect' as const,
+      tier: 3
     },
     {
       id: 'large_truck_score',
       name: '大货车评分',
-      type: 'multiSelect' as const
+      type: 'multiSelect' as const,
+      tier: 3
     },
     {
       id: 'small_truck_score',
       name: '小货车评分',
-      type: 'multiSelect' as const
+      type: 'multiSelect' as const,
+      tier: 3
     }
   ]), []);
 
@@ -433,320 +455,365 @@ export default function FilterPanel() {
   }
 
   return (
-    <div ref={panelRef} className="space-y-4">
-      {/* 筛选器标题和控制 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Filter className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-semibold">数据筛选</h3>
-          {hasActiveFilters && (
-            <span className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded-full">
-              {getActiveFilterCount(draftFilters)}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {hasUnsavedChanges && (
-            <span className="text-xs text-warning">有未应用的更改</span>
-          )}
-          <button
-            onClick={() => setPanelCollapsed(true)}
-            className="flex items-center space-x-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <span>收起</span>
-          </button>
-          <button
-            onClick={resetDraft}
-            className="flex items-center space-x-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <RotateCcw className="h-4 w-4" />
-            <span>清空</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 搜索框 */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="搜索筛选选项..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-        />
-        {searchTerm && (
-          <button
-            onClick={() => setSearchTerm('')}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-
-      {/* 快捷筛选 */}
-      <div className="flex flex-wrap items-center gap-2">
-        {quickActions.map(action => (
-          <button
-            key={action.key}
-            disabled={action.disabled}
-            onClick={() => {
-              action.apply();
-              setPanelCollapsed(true);
-            }}
-            className={cn(
-              'px-2.5 py-1 text-xs rounded-full border transition-colors',
-              action.disabled
-                ? 'text-muted-foreground/60 border-muted-foreground/20 cursor-not-allowed'
-                : 'text-primary border-primary/40 hover:bg-primary/10'
+    <div ref={panelRef} className="flex flex-col h-full max-h-[80vh]">
+      {/* 固定头部：筛选器标题和控制 */}
+      <div className="flex-shrink-0 space-y-4 pb-4 border-b">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Filter className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold">数据筛选</h3>
+            {hasActiveFilters && (
+              <span className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded-full">
+                {getActiveFilterCount(draftFilters)}
+              </span>
             )}
+          </div>
+          <div className="flex items-center gap-2">
+            {hasUnsavedChanges && (
+              <span className="text-xs text-warning">有未应用的更改</span>
+            )}
+            <button
+              onClick={() => setPanelCollapsed(true)}
+              className="flex items-center space-x-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <span>收起</span>
+            </button>
+            <button
+              onClick={resetDraft}
+              className="flex items-center space-x-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <RotateCcw className="h-4 w-4" />
+              <span>清空</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 待应用的筛选条件 - 固定在顶部 */}
+        {(hasActiveFilters || hasUnsavedChanges) && (
+          <div className="p-3 bg-muted/50 rounded-lg sticky top-0 z-10">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium">待应用的筛选条件</div>
+              <div className="text-xs text-muted-foreground">将筛选出 {previewCount.toLocaleString('zh-CN')} 条记录</div>
+            </div>
+            <div className="space-y-1 text-xs text-muted-foreground max-h-20 overflow-y-auto">
+              {Object.entries(draftFilters).map(([key, value]) => {
+                const config = filterConfigs.find(c => c.id === key);
+                if (!config || !value || (Array.isArray(value) && value.length === 0)) return null;
+
+                return (
+                  <div key={key}>
+                    <span className="font-medium">{config.name}:</span>{' '}
+                    {Array.isArray(value) ? (
+                      <span className="inline-flex flex-wrap gap-1 align-middle">
+                        {value.slice(0, 10).map((v) => (
+                          <span key={String(v)} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-accent rounded text-foreground">
+                            <span className="max-w-[10rem] truncate" title={String(v)}>{String(v)}</span>
+                            <button
+                              aria-label="移除"
+                              onClick={() => handleMultiSelectChange(key, v)}
+                              className="text-xs opacity-70 hover:opacity-100"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                        {value.length > 10 && (
+                          <span className="text-muted-foreground">+{value.length - 10} 更多</span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-accent rounded text-foreground">
+                        <span>{String(value)}</span>
+                        <button
+                          aria-label="清除"
+                          onClick={() => handleFilterChange(key, null)}
+                          className="text-xs opacity-70 hover:opacity-100"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {applyErrors.length > 0 && (
+              <div className="mt-2 text-xs text-danger">
+                {applyErrors.join('，')}
+              </div>
+            )}
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                onClick={applyDraft}
+                disabled={!hasUnsavedChanges || !isDraftValid}
+                className={cn('px-3 py-2 text-sm rounded-md bg-primary text-primary-foreground disabled:opacity-50')}
+              >
+                应用筛选
+              </button>
+              <button
+                onClick={() => setPanelCollapsed(true)}
+                className="px-3 py-2 text-sm rounded-md border"
+              >
+                稍后再说
+              </button>
+              <button
+                onClick={cancelDraft}
+                disabled={!hasUnsavedChanges}
+                className="px-3 py-2 text-sm rounded-md border disabled:opacity-50"
+              >
+                取消更改
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 搜索框 */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="搜索筛选选项..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {/* 快捷筛选 */}
+        <div className="flex flex-wrap items-center gap-2">
+          {quickActions.map(action => (
+            <button
+              key={action.key}
+              disabled={action.disabled}
+              onClick={() => {
+                action.apply();
+                setPanelCollapsed(true);
+              }}
+              className={cn(
+                'px-2.5 py-1 text-xs rounded-full border transition-colors',
+                action.disabled
+                  ? 'text-muted-foreground/60 border-muted-foreground/20 cursor-not-allowed'
+                  : 'text-primary border-primary/40 hover:bg-primary/10'
+              )}
+            >
+              {action.label}
+            </button>
+          ))}
+          <button
+            onClick={() => commitFilters(createDefaultFilters())}
+            className="px-2.5 py-1 text-xs rounded-full border border-muted-foreground/30 text-muted-foreground hover:bg-muted/50"
           >
-            {action.label}
+            清空筛选
           </button>
-        ))}
-        <button
-          onClick={() => commitFilters(createDefaultFilters())}
-          className="px-2.5 py-1 text-xs rounded-full border border-muted-foreground/30 text-muted-foreground hover:bg-muted/50"
-        >
-          清空筛选
-        </button>
+        </div>
       </div>
 
-      {/* 筛选器列表 */}
-      <div className="space-y-2">
-        {filterConfigs.map((config) => {
-          const isExpanded = expandedFilters.includes(config.id);
-          const currentValue = draftFilters[config.id as keyof FilterState];
-          const hasValue = Array.isArray(currentValue) ? currentValue.length > 0 : currentValue !== null;
-          const options = filterOptions[config.id] || config.options || [];
-          const filteredOptions = getFilteredOptions(options, searchTerm);
-          const showRequiredError = config.required && !hasValue;
+      {/* 可滚动内容区域 */}
+      <div className="flex-1 overflow-y-auto py-4">
+        {/* 筛选器列表 */}
+        <div className="space-y-4 mb-4">
+          {/* 渲染筛选器 */}
+          {(() => {
+            const renderFilterConfig = (config: any) => {
+              const isExpanded = expandedFilters.includes(config.id);
+              const currentValue = draftFilters[config.id as keyof FilterState];
+              const hasValue = Array.isArray(currentValue) ? currentValue.length > 0 : currentValue !== null;
+              const options = filterOptions[config.id] || config.options || [];
+              const filteredOptions = getFilteredOptions(options, searchTerm);
+              const showRequiredError = config.required && !hasValue;
 
-          return (
-            <div key={config.id} className={cn("border rounded-lg", showRequiredError ? 'border-destructive' : 'border-border')}>
-              {/* 筛选器标题 */}
-              <button
-                onClick={() => toggleFilter(config.id)}
-                className={cn(
-                  'w-full flex items-center justify-between p-3 text-left hover:bg-muted/50 transition-colors',
-                  isExpanded && 'border-b border-border'
-                )}
-              >
-                <div className="flex items-center space-x-2">
-                  <span className="font-medium text-sm">
-                    {config.name}
-                  </span>
-                  {config.required && (
-                    <span className="text-xs text-destructive">*</span>
-                  )}
-                  {hasValue && (
-                    <span className="px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded">
-                      {Array.isArray(currentValue) ? currentValue.length : '已选择'}
-                    </span>
-                  )}
-                </div>
-                <div className={cn(
-                  'transition-transform',
-                  isExpanded ? 'rotate-180' : 'rotate-0'
-                )}>
-                  ↓
-                </div>
-              </button>
-
-              {/* 筛选器选项 */}
-              {isExpanded && (
-                <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
-                  {showRequiredError && (
-                    <div className="text-xs text-destructive">此为必选项</div>
-                  )}
-                  {config.type === 'select' ? (
-                    <div className="space-y-1">
-                      {(config.options || []).map((option: any) => (
-                        <button
-                          key={String(option.value)}
-                          onClick={() => handleFilterChange(config.id, option.value)}
-                          className={cn(
-                            'w-full text-left px-3 py-2 text-sm rounded hover:bg-muted/50 transition-colors',
-                            currentValue === option.value ? 'bg-primary text-primary-foreground' : ''
-                          )}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
+              return (
+                <div key={config.id} className={cn("border rounded-lg", showRequiredError ? 'border-destructive' : 'border-border')}>
+                  {/* 筛选器标题 */}
+                  <button
+                    onClick={() => toggleFilter(config.id)}
+                    className={cn(
+                      'w-full flex items-center justify-between p-3 text-left hover:bg-muted/50 transition-colors',
+                      isExpanded && 'border-b border-border'
+                    )}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium text-sm">
+                        {config.name}
+                      </span>
+                      {config.required && (
+                        <span className="text-xs text-destructive">*</span>
+                      )}
+                      {hasValue && (
+                        <span className="px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded">
+                          {Array.isArray(currentValue) ? currentValue.length : '已选择'}
+                        </span>
+                      )}
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {/* 多选工具条 */}
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <button className="px-2 py-1 rounded border" onClick={() => selectAll(config.id, filteredOptions)}>全选</button>
-                        <button className="px-2 py-1 rounded border" onClick={() => clearAll(config.id)}>清空</button>
-                        <button className="px-2 py-1 rounded border" onClick={() => invertSelect(config.id, filteredOptions)}>反选</button>
-                        {config.id === 'week_number' && (
-                          <div className="flex items-center gap-1">
-                            <span>范围</span>
-                            <input
-                              type="number"
-                              className="w-16 px-1 py-0.5 border rounded"
-                              value={weekStartInput === '' ? (Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.min(...filterOptions.week_number) : '') : weekStartInput}
-                              onChange={(e) => setWeekStartInput(e.target.value === '' ? '' : Number(e.target.value))}
-                              min={Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.min(...filterOptions.week_number) : 1}
-                              max={Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.max(...filterOptions.week_number) : 53}
-                            />
-                            <span>-</span>
-                            <input
-                              type="number"
-                              className="w-16 px-1 py-0.5 border rounded"
-                              value={weekEndInput === '' ? (Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.max(...filterOptions.week_number) : '') : weekEndInput}
-                              onChange={(e) => setWeekEndInput(e.target.value === '' ? '' : Number(e.target.value))}
-                              min={Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.min(...filterOptions.week_number) : 1}
-                              max={Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.max(...filterOptions.week_number) : 53}
-                            />
-                            <button className="px-2 py-1 rounded border" onClick={() => applyWeekRange(filterOptions.week_number || [])}>应用范围</button>
+                    <div className={cn(
+                      'transition-transform',
+                      isExpanded ? 'rotate-180' : 'rotate-0'
+                    )}>
+                      ↓
+                    </div>
+                  </button>
+
+                  {/* 筛选器选项 */}
+                  {isExpanded && (
+                    <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
+                      {showRequiredError && (
+                        <div className="text-xs text-destructive">此为必选项</div>
+                      )}
+                      {config.type === 'select' ? (
+                        <div className="space-y-1">
+                          {(config.options || []).map((option: any) => (
                             <button
-                              className="px-2 py-1 rounded border"
-                              onClick={() => {
-                                const weeks: number[] = filterOptions.week_number || [];
-                                const top = [...weeks].sort((a,b)=>b-a).slice(0, 4);
-                                handleFilterChange('week_number', top.sort((a,b)=>a-b));
-                              }}
-                            >最近4周</button>
-                          </div>
-                        )}
-                      </div>
-                      {/* 多选列表 */}
-                      {filteredOptions.length > 0 ? (
-                        filteredOptions.map((option: any) => (
-                          <label
-                            key={String(option)}
-                            className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={(currentValue as any[])?.includes(option) || false}
-                              onChange={() => handleMultiSelectChange(config.id, option)}
-                              className="rounded border-border"
-                            />
-                            <span className="text-sm">{String(option)}</span>
-                          </label>
-                        ))
+                              key={String(option.value)}
+                              onClick={() => handleFilterChange(config.id, option.value)}
+                              className={cn(
+                                'w-full text-left px-3 py-2 text-sm rounded hover:bg-muted/50 transition-colors',
+                                currentValue === option.value ? 'bg-primary text-primary-foreground' : ''
+                              )}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
                       ) : (
-                        <div className="text-sm text-muted-foreground text-center py-4">
-                          {searchTerm ? '未找到匹配项' : '暂无选项'}
+                        <div className="space-y-2">
+                          {/* 多选工具条 */}
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <button className="px-2 py-1 rounded border" onClick={() => selectAll(config.id, filteredOptions)}>全选</button>
+                            <button className="px-2 py-1 rounded border" onClick={() => clearAll(config.id)}>清空</button>
+                            <button className="px-2 py-1 rounded border" onClick={() => invertSelect(config.id, filteredOptions)}>反选</button>
+                            {config.id === 'week_number' && (
+                              <div className="flex items-center gap-1">
+                                <span>范围</span>
+                                <input
+                                  type="number"
+                                  className="w-16 px-1 py-0.5 border rounded"
+                                  value={weekStartInput === '' ? (Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.min(...filterOptions.week_number) : '') : weekStartInput}
+                                  onChange={(e) => setWeekStartInput(e.target.value === '' ? '' : Number(e.target.value))}
+                                  min={Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.min(...filterOptions.week_number) : 1}
+                                  max={Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.max(...filterOptions.week_number) : 53}
+                                />
+                                <span>-</span>
+                                <input
+                                  type="number"
+                                  className="w-16 px-1 py-0.5 border rounded"
+                                  value={weekEndInput === '' ? (Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.max(...filterOptions.week_number) : '') : weekEndInput}
+                                  onChange={(e) => setWeekEndInput(e.target.value === '' ? '' : Number(e.target.value))}
+                                  min={Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.min(...filterOptions.week_number) : 1}
+                                  max={Array.isArray(filterOptions.week_number) && filterOptions.week_number.length > 0 ? Math.max(...filterOptions.week_number) : 53}
+                                />
+                                <button className="px-2 py-1 rounded border" onClick={() => applyWeekRange(filterOptions.week_number || [])}>应用范围</button>
+                                <button
+                                  className="px-2 py-1 rounded border"
+                                  onClick={() => {
+                                    const weeks: number[] = filterOptions.week_number || [];
+                                    const top = [...weeks].sort((a,b)=>b-a).slice(0, 4);
+                                    handleFilterChange('week_number', top.sort((a,b)=>a-b));
+                                  }}
+                                >最近4周</button>
+                              </div>
+                            )}
+                          </div>
+                          {/* 多选列表 */}
+                          {filteredOptions.length > 0 ? (
+                            filteredOptions.map((option: any) => (
+                              <label
+                                key={String(option)}
+                                className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={(currentValue as any[])?.includes(option) || false}
+                                  onChange={() => handleMultiSelectChange(config.id, option)}
+                                  className="rounded border-border"
+                                />
+                                <span className="text-sm">{String(option)}</span>
+                              </label>
+                            ))
+                          ) : (
+                            <div className="text-sm text-muted-foreground text-center py-4">
+                              {searchTerm ? '未找到匹配项' : '暂无选项'}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              );
+            };
 
-      {/* 筛选概要与操作 */}
-      {(hasActiveFilters || hasUnsavedChanges) && (
-        <div className="p-3 bg-muted/50 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-sm font-medium">待应用的筛选条件</div>
-            <div className="text-xs text-muted-foreground">将筛选出 {previewCount.toLocaleString('zh-CN')} 条记录</div>
-          </div>
-          <div className="space-y-1 text-xs text-muted-foreground">
-            {Object.entries(draftFilters).map(([key, value]) => {
-              const config = filterConfigs.find(c => c.id === key);
-              if (!config || !value || (Array.isArray(value) && value.length === 0)) return null;
+            return (
+              <>
+                {/* 常用筛选 */}
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-muted-foreground/80 px-1">常用筛选</div>
+                  {filterConfigs.filter(config => config.tier === 1).map(renderFilterConfig)}
+                </div>
 
-              return (
-                <div key={key}>
-                  <span className="font-medium">{config.name}:</span>{' '}
-                  {Array.isArray(value) ? (
-                    <span className="inline-flex flex-wrap gap-1 align-middle">
-                      {value.slice(0, 10).map((v) => (
-                        <span key={String(v)} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-accent rounded text-foreground">
-                          <span className="max-w-[10rem] truncate" title={String(v)}>{String(v)}</span>
-                          <button
-                            aria-label="移除"
-                            onClick={() => handleMultiSelectChange(key, v)}
-                            className="text-xs opacity-70 hover:opacity-100"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                      {value.length > 10 && (
-                        <span className="text-muted-foreground">+{value.length - 10} 更多</span>
-                      )}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-accent rounded text-foreground">
-                      <span>{String(value)}</span>
-                      <button
-                        aria-label="清除"
-                        onClick={() => handleFilterChange(key, null)}
-                        className="text-xs opacity-70 hover:opacity-100"
-                      >
-                        ×
-                      </button>
-                    </span>
+                {/* 业务维度筛选 */}
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-muted-foreground/80 px-1">业务维度</div>
+                  {filterConfigs.filter(config => config.tier === 2).map(renderFilterConfig)}
+                </div>
+
+                {/* 高级筛选 - 可折叠 */}
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="flex items-center justify-between w-full text-sm font-medium text-muted-foreground/80 px-1 py-2 hover:text-foreground transition-colors"
+                  >
+                    <span>高级筛选</span>
+                    <div className={cn(
+                      'transition-transform text-xs',
+                      showAdvanced ? 'rotate-180' : 'rotate-0'
+                    )}>
+                      ↓
+                    </div>
+                  </button>
+                  {showAdvanced && (
+                    <div className="space-y-2">
+                      {filterConfigs.filter(config => config.tier === 3).map(renderFilterConfig)}
+                    </div>
                   )}
                 </div>
-              );
-            })}
+              </>
+            );
+          })()}
+        </div>
+
+        {/* 方案与分享 */}
+        <div className="p-3 border rounded-lg space-y-2">
+          <div className="text-sm font-medium">筛选方案</div>
+          <div className="flex items-center gap-2">
+            <input
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+              placeholder="方案名称"
+              className="flex-1 px-2 py-1 text-sm border rounded"
+            />
+            <button onClick={addPreset} className="px-3 py-1.5 text-sm rounded-md border">保存方案</button>
+            <button onClick={copyShareLink} className="px-3 py-1.5 text-sm rounded-md border">复制分享链接</button>
           </div>
-          {applyErrors.length > 0 && (
-            <div className="mt-2 text-xs text-danger">
-              {applyErrors.join('，')}
+          {presets.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {presets.map(p => (
+                <span key={p.name} className="inline-flex items-center gap-2 px-2 py-1 rounded border text-sm">
+                  <button className="hover:underline" onClick={() => applyPreset(p.name)}>{p.name}</button>
+                  <button className="text-muted-foreground" onClick={() => deletePreset(p.name)}>删除</button>
+                </span>
+              ))}
             </div>
           )}
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              onClick={applyDraft}
-              disabled={!hasUnsavedChanges || !isDraftValid}
-              className={cn('px-3 py-2 text-sm rounded-md bg-primary text-primary-foreground disabled:opacity-50')}
-            >
-              应用筛选
-            </button>
-            <button
-              onClick={() => setPanelCollapsed(true)}
-              className="px-3 py-2 text-sm rounded-md border"
-            >
-              稍后再说
-            </button>
-            <button
-              onClick={cancelDraft}
-              disabled={!hasUnsavedChanges}
-              className="px-3 py-2 text-sm rounded-md border disabled:opacity-50"
-            >
-              取消更改
-            </button>
-          </div>
+          <div className="text-xs text-muted-foreground">链接参数键：{FILTERS_QUERY_KEY}</div>
         </div>
-      )}
-
-      {/* 方案与分享 */}
-      <div className="p-3 border rounded-lg space-y-2">
-        <div className="text-sm font-medium">筛选方案</div>
-        <div className="flex items-center gap-2">
-          <input
-            value={presetName}
-            onChange={(e) => setPresetName(e.target.value)}
-            placeholder="方案名称"
-            className="flex-1 px-2 py-1 text-sm border rounded"
-          />
-          <button onClick={addPreset} className="px-3 py-1.5 text-sm rounded-md border">保存方案</button>
-          <button onClick={copyShareLink} className="px-3 py-1.5 text-sm rounded-md border">复制分享链接</button>
-        </div>
-        {presets.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {presets.map(p => (
-              <span key={p.name} className="inline-flex items-center gap-2 px-2 py-1 rounded border text-sm">
-                <button className="hover:underline" onClick={() => applyPreset(p.name)}>{p.name}</button>
-                <button className="text-muted-foreground" onClick={() => deletePreset(p.name)}>删除</button>
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="text-xs text-muted-foreground">链接参数键：{FILTERS_QUERY_KEY}</div>
       </div>
     </div>
   );

@@ -42,6 +42,52 @@ export default function DataImport({ onClose }: DataImportProps) {
   const [stage, setStage] = useState<'idle' | 'processing' | 'ready' | 'importing' | 'success'>('idle');
   const [globalWarnings, setGlobalWarnings] = useState<string[]>([]);
 
+  const allRecords = useMemo(
+    () => processedFiles.flatMap(file => file.records),
+    [processedFiles]
+  );
+
+  const uniquePeriods = useMemo(() => {
+    const keys = new Map<string, { year: number; week: number; source: string }>();
+    processedFiles.forEach(file => {
+      file.records.forEach(record => {
+        if (!record.policy_start_year || !record.week_number) return;
+        const key = `${record.policy_start_year}-${record.week_number}`;
+        if (!keys.has(key)) {
+          keys.set(key, { year: record.policy_start_year, week: record.week_number, source: file.fileName });
+        } else {
+          const existed = keys.get(key);
+          if (existed && existed.source !== file.fileName) {
+            keys.set(key, { ...existed, source: `${existed.source} / ${file.fileName}` });
+          }
+        }
+      });
+    });
+    return Array.from(keys.values()).sort((a, b) =>
+      a.year === b.year ? a.week - b.week : a.year - b.year
+    );
+  }, [processedFiles]);
+
+  const duplicateWeeks = useMemo(() => {
+    const seen = new Map<string, string>();
+    const duplicates = new Map<string, Set<string>>();
+    processedFiles.forEach(file => {
+      file.records.forEach(record => {
+        if (!record.policy_start_year || !record.week_number) return;
+        const key = `${record.policy_start_year}-${record.week_number}`;
+        if (!seen.has(key)) {
+          seen.set(key, file.fileName);
+        } else {
+          if (!duplicates.has(key)) {
+            duplicates.set(key, new Set([seen.get(key)!]));
+          }
+          duplicates.get(key)!.add(file.fileName);
+        }
+      });
+    });
+    return Array.from(duplicates.entries()).map(([key, sources]) => `${key}（${Array.from(sources).join('、')}）`);
+  }, [processedFiles]);
+
   useEffect(() => {
     if (processedFiles.length === 0) {
       setGlobalWarnings([]);
@@ -101,20 +147,6 @@ export default function DataImport({ onClose }: DataImportProps) {
     e.stopPropagation();
   }, []);
 
-  /**
-   * 处理文件拖拽放下
-   */
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      processFiles(files);
-    }
-  }, [processFiles]);
-
   const processFiles = useCallback(async (files: File[]) => {
     const csvFiles = files.filter(f => f.name.toLowerCase().endsWith('.csv'));
     const oversize = csvFiles.filter(f => f.size > 50 * 1024 * 1024);
@@ -167,6 +199,20 @@ export default function DataImport({ onClose }: DataImportProps) {
   }, []);
 
   /**
+   * 处理文件拖拽放下
+   */
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      processFiles(files);
+    }
+  }, [processFiles]);
+
+  /**
    * 处理文件输入变化
    */
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -178,52 +224,6 @@ export default function DataImport({ onClose }: DataImportProps) {
       fileInputRef.current.value = '';
     }
   }, [processFiles]);
-
-  const allRecords = useMemo(
-    () => processedFiles.flatMap(file => file.records),
-    [processedFiles]
-  );
-
-  const uniquePeriods = useMemo(() => {
-    const keys = new Map<string, { year: number; week: number; source: string }>();
-    processedFiles.forEach(file => {
-      file.records.forEach(record => {
-        if (!record.policy_start_year || !record.week_number) return;
-        const key = `${record.policy_start_year}-${record.week_number}`;
-        if (!keys.has(key)) {
-          keys.set(key, { year: record.policy_start_year, week: record.week_number, source: file.fileName });
-        } else {
-          const existed = keys.get(key);
-          if (existed && existed.source !== file.fileName) {
-            keys.set(key, { ...existed, source: `${existed.source} / ${file.fileName}` });
-          }
-        }
-      });
-    });
-    return Array.from(keys.values()).sort((a, b) =>
-      a.year === b.year ? a.week - b.week : a.year - b.year
-    );
-  }, [processedFiles]);
-
-  const duplicateWeeks = useMemo(() => {
-    const seen = new Map<string, string>();
-    const duplicates = new Map<string, Set<string>>();
-    processedFiles.forEach(file => {
-      file.records.forEach(record => {
-        if (!record.policy_start_year || !record.week_number) return;
-        const key = `${record.policy_start_year}-${record.week_number}`;
-        if (!seen.has(key)) {
-          seen.set(key, file.fileName);
-        } else {
-          if (!duplicates.has(key)) {
-            duplicates.set(key, new Set([seen.get(key)!]));
-          }
-          duplicates.get(key)!.add(file.fileName);
-        }
-      });
-    });
-    return Array.from(duplicates.entries()).map(([key, sources]) => `${key}（${Array.from(sources).join('、')}）`);
-  }, [processedFiles]);
 
   useEffect(() => {
     if (duplicateWeeks.length > 0) {
@@ -299,7 +299,6 @@ export default function DataImport({ onClose }: DataImportProps) {
     setProcessedFiles([]);
     setStage('idle');
     setGlobalWarnings([]);
-    setGlobalErrors([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
