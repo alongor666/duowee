@@ -77,6 +77,7 @@ export interface FilterOption {
 export interface FilterState {
   policy_start_year: number[];
   week_number: number[];
+  chengdu_branch: string[];
   third_level_organization: string[];
   insurance_type: string[];
   coverage_type: string[];
@@ -88,6 +89,8 @@ export interface FilterState {
   is_transferred_vehicle: boolean | null;
   vehicle_insurance_grade: string[];
   highway_risk_grade: string[];
+  large_truck_score: string[];
+  small_truck_score: string[];
 }
 
 // 对比分析类型

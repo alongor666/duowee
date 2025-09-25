@@ -15,7 +15,7 @@ export default function FilterPanel() {
   const searchParams = useSearchParams();
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedFilters, setExpandedFilters] = useState<string[]>(['policy_start_year', 'week_number', 'third_level_organization', 'insurance_type', 'coverage_type']);
+  const [expandedFilters, setExpandedFilters] = useState<string[]>(['policy_start_year', 'week_number', 'chengdu_branch', 'third_level_organization', 'insurance_type', 'coverage_type']);
   const [filterOptions, setFilterOptions] = useState<any>({});
   const [draftFilters, setDraftFilters] = useState<FilterState>(state.filters);
   const [applyErrors, setApplyErrors] = useState<string[]>([]);
@@ -82,6 +82,11 @@ export default function FilterPanel() {
       required: true
     },
     {
+      id: 'chengdu_branch',
+      name: '机构层级',
+      type: 'multiSelect' as const
+    },
+    {
       id: 'third_level_organization',
       name: '三级机构',
       type: 'multiSelect' as const
@@ -144,6 +149,16 @@ export default function FilterPanel() {
     {
       id: 'highway_risk_grade',
       name: '公路风险等级',
+      type: 'multiSelect' as const
+    },
+    {
+      id: 'large_truck_score',
+      name: '大货车评分',
+      type: 'multiSelect' as const
+    },
+    {
+      id: 'small_truck_score',
+      name: '小货车评分',
       type: 'multiSelect' as const
     }
   ]), []);
@@ -367,7 +382,7 @@ export default function FilterPanel() {
   // 收起态摘要
   const summaryChips = useMemo(() => {
     const chips: Array<{ label: string; values: string[] }> = [];
-    const showKeys = ['policy_start_year', 'week_number', 'third_level_organization', 'insurance_type', 'coverage_type'] as const;
+    const showKeys = ['policy_start_year', 'week_number', 'chengdu_branch', 'third_level_organization', 'insurance_type', 'coverage_type'] as const;
     showKeys.forEach((key) => {
       const cfg = filterConfigs.find(c => c.id === key);
       const v = draftFilters[key as keyof FilterState] as any;

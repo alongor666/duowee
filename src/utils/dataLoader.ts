@@ -8,6 +8,64 @@ import type {
 } from '@/types';
 
 /**
+ * 将可能为空的评级字段统一转换为可用于比较的值
+ */
+function normalizeGradeValue(value?: string | null): string {
+  if (!value || value.trim() === '') {
+    return '未评级';
+  }
+  return value.trim();
+}
+
+/**
+ * 判断筛选值是否匹配评级字段（支持“未评级”选项）
+ */
+function matchesWithUnrated(selected: string[], value?: string | null): boolean {
+  if (!selected || selected.length === 0) {
+    return true;
+  }
+  const normalized = normalizeGradeValue(value);
+  return selected.includes(normalized);
+}
+
+/**
+ * 构建带有预设排序的筛选选项列表，可选地在存在空值时追加“未评级”
+ */
+function buildOrderedOptions(values: Array<string | null | undefined>, order?: string[], includeUnrated = false): string[] {
+  const normalized = values.map(value => value?.trim() ?? '');
+  const unique = new Set<string>();
+  let hasEmpty = false;
+
+  normalized.forEach(value => {
+    if (!value) {
+      if (includeUnrated) {
+        hasEmpty = true;
+      }
+      return;
+    }
+    unique.add(value);
+  });
+
+  let sorted: string[];
+
+  if (order && order.length > 0) {
+    const ordered = order.filter(item => unique.has(item));
+    const remaining = Array.from(unique)
+      .filter(item => !order.includes(item))
+      .sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    sorted = [...ordered, ...remaining];
+  } else {
+    sorted = Array.from(unique).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  }
+
+  if (includeUnrated && hasEmpty && !unique.has('未评级')) {
+    sorted.push('未评级');
+  }
+
+  return sorted;
+}
+
+/**
  * 加载CSV数据文件
  */
 export async function loadCSVData(filePath: string): Promise<CarInsuranceRecord[]> {
@@ -189,6 +247,11 @@ export function filterData(records: CarInsuranceRecord[], filters: FilterState):
       return false;
     }
 
+    // 机构层级筛选
+    if (filters.chengdu_branch.length > 0 && !filters.chengdu_branch.includes(record.chengdu_branch)) {
+      return false;
+    }
+
     // 机构筛选
     if (filters.third_level_organization.length > 0 && !filters.third_level_organization.includes(record.third_level_organization)) {
       return false;
@@ -235,12 +298,22 @@ export function filterData(records: CarInsuranceRecord[], filters: FilterState):
     }
 
     // 车险等级筛选
-    if (filters.vehicle_insurance_grade.length > 0 && !filters.vehicle_insurance_grade.includes(record.vehicle_insurance_grade)) {
+    if (!matchesWithUnrated(filters.vehicle_insurance_grade, record.vehicle_insurance_grade)) {
       return false;
     }
 
     // 公路风险等级筛选
-    if (filters.highway_risk_grade.length > 0 && !filters.highway_risk_grade.includes(record.highway_risk_grade)) {
+    if (!matchesWithUnrated(filters.highway_risk_grade, record.highway_risk_grade)) {
+      return false;
+    }
+
+    // 大货车评分筛选
+    if (!matchesWithUnrated(filters.large_truck_score, record.large_truck_score)) {
+      return false;
+    }
+
+    // 小货车评分筛选
+    if (!matchesWithUnrated(filters.small_truck_score, record.small_truck_score)) {
       return false;
     }
 
@@ -285,17 +358,20 @@ export async function loadMetadata(): Promise<{
  */
 export function getFilterOptions(records: CarInsuranceRecord[]) {
   const options = {
-    policy_start_year: [...new Set(records.map(r => r.policy_start_year))].sort(),
-    week_number: [...new Set(records.map(r => r.week_number))].sort(),
-    third_level_organization: [...new Set(records.map(r => r.third_level_organization))].sort(),
-    insurance_type: [...new Set(records.map(r => r.insurance_type))].sort(),
-    coverage_type: [...new Set(records.map(r => r.coverage_type))].sort(),
-    business_type_category: [...new Set(records.map(r => r.business_type_category))].sort(),
-    customer_category_3: [...new Set(records.map(r => r.customer_category_3))].sort(),
-    renewal_status: [...new Set(records.map(r => r.renewal_status))].sort(),
-    terminal_source: [...new Set(records.map(r => r.terminal_source))].sort(),
-    vehicle_insurance_grade: [...new Set(records.map(r => r.vehicle_insurance_grade))].filter(Boolean).sort(),
-    highway_risk_grade: [...new Set(records.map(r => r.highway_risk_grade))].filter(Boolean).sort(),
+    policy_start_year: [...new Set(records.map(r => r.policy_start_year).filter(year => year > 0))].sort((a, b) => a - b),
+    week_number: [...new Set(records.map(r => r.week_number).filter(week => week > 0))].sort((a, b) => a - b),
+    chengdu_branch: buildOrderedOptions(records.map(r => r.chengdu_branch)),
+    third_level_organization: buildOrderedOptions(records.map(r => r.third_level_organization)),
+    insurance_type: buildOrderedOptions(records.map(r => r.insurance_type)),
+    coverage_type: buildOrderedOptions(records.map(r => r.coverage_type)),
+    business_type_category: buildOrderedOptions(records.map(r => r.business_type_category)),
+    customer_category_3: buildOrderedOptions(records.map(r => r.customer_category_3)),
+    renewal_status: buildOrderedOptions(records.map(r => r.renewal_status)),
+    terminal_source: buildOrderedOptions(records.map(r => r.terminal_source)),
+    vehicle_insurance_grade: buildOrderedOptions(records.map(r => r.vehicle_insurance_grade), ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'X'], true),
+    highway_risk_grade: buildOrderedOptions(records.map(r => r.highway_risk_grade), ['A', 'B', 'C', 'D', 'E', 'X'], true),
+    large_truck_score: buildOrderedOptions(records.map(r => r.large_truck_score), ['A', 'B', 'C', 'D', 'E', 'X'], true),
+    small_truck_score: buildOrderedOptions(records.map(r => r.small_truck_score), ['A', 'B', 'C', 'D', 'E', 'X'], true),
   };
 
   return options;
@@ -308,6 +384,7 @@ export function createDefaultFilters(): FilterState {
   return {
     policy_start_year: [],
     week_number: [],
+    chengdu_branch: [],
     third_level_organization: [],
     insurance_type: [],
     coverage_type: [],
@@ -319,6 +396,8 @@ export function createDefaultFilters(): FilterState {
     is_transferred_vehicle: null,
     vehicle_insurance_grade: [],
     highway_risk_grade: [],
+    large_truck_score: [],
+    small_truck_score: [],
   };
 }
 
