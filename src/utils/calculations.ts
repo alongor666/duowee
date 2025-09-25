@@ -80,12 +80,15 @@ export function calculateKPIMetrics(data: AggregatedData, previousData?: Aggrega
   // 第二行：核心率值指标（%）
   const maturedLossRatio = safeDiv(data.reported_claim_payment, data.matured_premium) * 100;
   const expenseRatio = safeDiv(data.expense_amount, data.signed_premium) * 100;
-  const variableCostRatio = safeDiv(data.expense_amount + data.reported_claim_payment, data.signed_premium) * 100;
+  // 变动成本率采用“费用率 + 满期赔付率”的行业通用表达（口径分别为签单/满期）
+  const variableCostRatio = expenseRatio + maturedLossRatio;
   const marginalContributionRatio = safeDiv(data.marginal_contribution_amount, data.matured_premium) * 100;
 
   const prevMaturedLossRatio = previousData ? safeDiv(previousData.reported_claim_payment, previousData.matured_premium) * 100 : undefined;
   const prevExpenseRatio = previousData ? safeDiv(previousData.expense_amount, previousData.signed_premium) * 100 : undefined;
-  const prevVariableCostRatio = previousData ? safeDiv(previousData.expense_amount + previousData.reported_claim_payment, previousData.signed_premium) * 100 : undefined;
+  const prevVariableCostRatio = previousData && prevExpenseRatio !== undefined && prevMaturedLossRatio !== undefined
+    ? prevExpenseRatio + prevMaturedLossRatio
+    : undefined;
   const prevMarginalContributionRatio = previousData ? safeDiv(previousData.marginal_contribution_amount, previousData.matured_premium) * 100 : undefined;
 
   metrics.push(
@@ -116,7 +119,7 @@ export function calculateKPIMetrics(data: AggregatedData, previousData?: Aggrega
       prevVariableCostRatio,
       '%',
       'ratio',
-      'SUM(expense_amount_yuan + reported_claim_payment_yuan) / NULLIF(SUM(signed_premium_yuan), 0) * 100',
+      '费用率 + 满期赔付率',
       'negative' // 成本率上升是负面的
     ),
     createKPIMetric(

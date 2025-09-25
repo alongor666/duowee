@@ -117,7 +117,7 @@ week_number
 ### 第二行：核心率值指标
 5. **满期赔付率**（%）：SUM(reported_claim_payment_yuan) / SUM(matured_premium_yuan) × 100
 6. **费用率**（%）：SUM(expense_amount_yuan) / SUM(signed_premium_yuan) × 100
-7. **变动成本率**（%）：SUM(expense_amount_yuan + reported_claim_payment_yuan) / SUM(signed_premium_yuan) × 100
+7. **变动成本率**（%）：费用金额/签单保费 + 已报告赔款/满期保费
 8. **满期边际贡献率**（%）：SUM(marginal_contribution_amount_yuan) / SUM(matured_premium_yuan) × 100
 
 ### 第三行：运营指标
